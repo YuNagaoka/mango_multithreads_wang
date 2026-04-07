@@ -54,12 +54,33 @@ std::vector< int > parseFastq(std::string fastq1, std::string fastq2,std::string
 {
 
    // arguments
-    ifstream file1(fastq1.c_str());
-    ifstream file2(fastq2.c_str());
-    ofstream same1 ( (basename + "_1.same.fastq").c_str() );
-    ofstream same2 ( (basename + "_2.same.fastq").c_str() );
-    ofstream chim1 ( (basename + "_1.chim.fastq").c_str() );
-    ofstream chim2 ( (basename + "_2.chim.fastq").c_str() );
+	string tmpfastq1 = fastq1;
+	string tmpfastq2 = fastq2;
+	bool remove_tmp1 = false;
+	bool remove_tmp2 = false;
+
+	if (fastq1.size() >= 3 && fastq1.substr(fastq1.size() - 3) == ".gz")
+	{
+  	tmpfastq1 = basename + "_1.input.tmp.fastq";
+  	string cmd1 = "gzip -dc " + fastq1 + " > " + tmpfastq1;
+  	system(cmd1.c_str());
+  	remove_tmp1 = true;
+	}
+
+	if (fastq2.size() >= 3 && fastq2.substr(fastq2.size() - 3) == ".gz")
+	{
+  	tmpfastq2 = basename + "_2.input.tmp.fastq";
+  	string cmd2 = "gzip -dc " + fastq2 + " > " + tmpfastq2;
+  	system(cmd2.c_str());
+  	remove_tmp2 = true;
+	}
+
+	ifstream file1(tmpfastq1.c_str());
+	ifstream file2(tmpfastq2.c_str());
+	ofstream same1 ( (basename + "_1.same.fastq").c_str() );
+	ofstream same2 ( (basename + "_2.same.fastq").c_str() );
+	ofstream chim1 ( (basename + "_1.chim.fastq").c_str() );
+	ofstream chim2 ( (basename + "_2.chim.fastq").c_str() );
     
     // keep track of PET types
     int samecount = 0;
@@ -273,7 +294,17 @@ std::string get_strand( unsigned long x ) {
 int StringToInt( std::string Text ) {
     int output;
     if ( ! (istringstream(Text) >> output) ) output = 0;
-    return output;
+	
+    file1.close();
+	file2.close();
+	same1.close();
+	same2.close();
+	chim1.close();
+	chim2.close();
+	if (remove_tmp1) remove(tmpfastq1.c_str());
+	if (remove_tmp2) remove(tmpfastq2.c_str());
+	
+	return output;
 }
 
 // Define a function that converts int to string 
