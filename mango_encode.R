@@ -293,10 +293,11 @@ if (1 %in% opt$stages)
               linker2=linker2,
               numberlinkers=numberlinkers)
   
-  resultshash[["total PETs"]] = sum(parsingresults)
-  resultshash[["same PETs"]] = parsingresults[1]
-  resultshash[["chimeric PETs"]] = parsingresults[2]
-  resultshash[["ambigious PETs"]] = parsingresults[3]
+  # parseFastq returns [total, same, chim, ambi] (R 1-based indexing)
+  resultshash[["total PETs"]] = as.numeric(parsingresults[1])
+  resultshash[["same PETs"]] = as.numeric(parsingresults[2])
+  resultshash[["chimeric PETs"]] = as.numeric(parsingresults[3])
+  resultshash[["ambigious PETs"]] = as.numeric(parsingresults[4])
 }
   
 ###################################### align reads #####################################
@@ -317,6 +318,27 @@ if (2 %in% opt$stages)
   fastq2 = paste(outname ,"_2.same.fastq",sep="")
   sam1   = paste(outname ,"_1.same.sam",sep="")
   sam2   = paste(outname ,"_2.same.sam",sep="")
+  
+  # Validate stage-1 FASTQ outputs before attempting alignment
+  for (fq in c(fastq1, fastq2)) {
+    if (!file.exists(fq)) {
+      stop(paste("Stage-1 FASTQ not found:", fq,
+                 "- check that stage 1 completed successfully"))
+    }
+    if (file.info(fq)$size == 0) {
+      stop(paste("Stage-1 FASTQ is empty (0 bytes):", fq,
+                 "- linker detection may have produced no valid reads"))
+    }
+    con_check <- file(fq, open = "r")
+    first_line <- tryCatch(
+      readLines(con_check, n = 1, warn = FALSE),
+      error = function(e) character(0),
+      finally = close(con_check)
+    )
+    if (length(first_line) == 0 || !grepl("^@", first_line[1])) {
+      stop(paste("Stage-1 FASTQ does not start with '@' (corrupt or not a valid FASTQ):", fq))
+    }
+  }
   
   # align both ends of each PET
   alignBowtie(fastq=fastq1,output=sam1,bowtiepath=bowtiepath,bowtieref=bowtieref,shortreads,threads)

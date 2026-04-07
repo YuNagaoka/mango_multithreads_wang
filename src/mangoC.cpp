@@ -63,20 +63,45 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
   {
     tmpfastq1 = basename + "_1.input.tmp.fastq";
     string cmd1 = "gzip -dc " + fastq1 + " > " + tmpfastq1;
-    system(cmd1.c_str());
+    int ret1 = system(cmd1.c_str());
     remove_tmp1 = true;
+    if (ret1 != 0)
+    {
+      // Clean up any partial file before aborting
+      std::remove(tmpfastq1.c_str());
+      Rcpp::stop("gzip decompression failed for " + fastq1);
+    }
   }
 
   if (fastq2.size() >= 3 && fastq2.substr(fastq2.size() - 3) == ".gz")
   {
     tmpfastq2 = basename + "_2.input.tmp.fastq";
     string cmd2 = "gzip -dc " + fastq2 + " > " + tmpfastq2;
-    system(cmd2.c_str());
+    int ret2 = system(cmd2.c_str());
     remove_tmp2 = true;
+    if (ret2 != 0)
+    {
+      if (remove_tmp1) std::remove(tmpfastq1.c_str());
+      std::remove(tmpfastq2.c_str());
+      Rcpp::stop("gzip decompression failed for " + fastq2);
+    }
   }
 
   ifstream file1(tmpfastq1.c_str());
+  if (!file1.is_open())
+  {
+    if (remove_tmp1) std::remove(tmpfastq1.c_str());
+    if (remove_tmp2) std::remove(tmpfastq2.c_str());
+    Rcpp::stop("Cannot open input FASTQ file: " + tmpfastq1);
+  }
   ifstream file2(tmpfastq2.c_str());
+  if (!file2.is_open())
+  {
+    file1.close();
+    if (remove_tmp1) std::remove(tmpfastq1.c_str());
+    if (remove_tmp2) std::remove(tmpfastq2.c_str());
+    Rcpp::stop("Cannot open input FASTQ file: " + tmpfastq2);
+  }
   ofstream same1((basename + "_1.same.fastq").c_str());
   ofstream same2((basename + "_2.same.fastq").c_str());
   ofstream chim1((basename + "_1.chim.fastq").c_str());
@@ -111,10 +136,16 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
     int r1linker = 0;
     int r2linker = 0;
 
-    bool r1_has_linker1 = (lines1[1].find(linker1) != std::string::npos);
-    bool r1_has_linker2 = (lines1[1].find(linker2) != std::string::npos);
-    bool r2_has_linker1 = (lines2[1].find(linker1) != std::string::npos);
-    bool r2_has_linker2 = (lines2[1].find(linker2) != std::string::npos);
+    // Find linker positions for both classification and trimming
+    size_t pos1_l1 = lines1[1].find(linker1);
+    size_t pos1_l2 = lines1[1].find(linker2);
+    size_t pos2_l1 = lines2[1].find(linker1);
+    size_t pos2_l2 = lines2[1].find(linker2);
+
+    bool r1_has_linker1 = (pos1_l1 != std::string::npos);
+    bool r1_has_linker2 = (pos1_l2 != std::string::npos);
+    bool r2_has_linker1 = (pos2_l1 != std::string::npos);
+    bool r2_has_linker2 = (pos2_l2 != std::string::npos);
 
     if (r1_has_linker1 && r1_has_linker2) r1linker = 3;
     else if (r1_has_linker1) r1linker = 1;
@@ -130,13 +161,18 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
 
     if (keepempty == true)
     {
+      // Keep one-sided linker pairs as "same" (one read has a linker, the other doesn't)
       if ((r1linker == 0 && r2linker == 1) ||
           (r1linker == 0 && r2linker == 2) ||
           (r1linker == 1 && r2linker == 0) ||
-          (r1linker == 2 && r2linker == 0) ||
-          (r1linker == 0 && r2linker == 0))
+          (r1linker == 2 && r2linker == 0))
       {
         pairtype = "same";
+      }
+      // (0,0): neither read has a linker - analytically ambiguous even with keepempty
+      else if (r1linker == 0 && r2linker == 0)
+      {
+        pairtype = "ambi";
       }
     }
     else
@@ -151,19 +187,38 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
     if (pairtype == "chim") chimcount++;
     if (pairtype == "ambi") ambicount++;
 
-    if ((lines1[1].length() >= (size_t)minlength) && (lines1[1].length() <= (size_t)maxlength) &&
-        (lines2[1].length() >= (size_t)minlength) && (lines2[1].length() <= (size_t)maxlength))
+    // Trim each read at the position of the earliest linker found.
+    // Reads without a linker are kept at full length (for keepempty pairs).
+    size_t trim1_pos = std::string::npos;
+    if (pos1_l1 != std::string::npos) trim1_pos = pos1_l1;
+    if (pos1_l2 != std::string::npos && (trim1_pos == std::string::npos || pos1_l2 < trim1_pos))
+      trim1_pos = pos1_l2;
+
+    size_t trim2_pos = std::string::npos;
+    if (pos2_l1 != std::string::npos) trim2_pos = pos2_l1;
+    if (pos2_l2 != std::string::npos && (trim2_pos == std::string::npos || pos2_l2 < trim2_pos))
+      trim2_pos = pos2_l2;
+
+    // Trimmed sequence and quality (substr with length > string.size() is safe: returns full string)
+    std::string seq1  = (trim1_pos != std::string::npos) ? lines1[1].substr(0, trim1_pos) : lines1[1];
+    std::string qual1 = (trim1_pos != std::string::npos) ? lines1[3].substr(0, trim1_pos) : lines1[3];
+    std::string seq2  = (trim2_pos != std::string::npos) ? lines2[1].substr(0, trim2_pos) : lines2[1];
+    std::string qual2 = (trim2_pos != std::string::npos) ? lines2[3].substr(0, trim2_pos) : lines2[3];
+
+    // Apply length filter on trimmed sequences
+    if ((seq1.length() >= (size_t)minlength) && (seq1.length() <= (size_t)maxlength) &&
+        (seq2.length() >= (size_t)minlength) && (seq2.length() <= (size_t)maxlength))
     {
       if (pairtype == "same")
       {
-        same1 << vector_join(lines1, "\n") << "\n";
-        same2 << vector_join(lines2, "\n") << "\n";
+        same1 << lines1[0] << "\n" << seq1 << "\n" << lines1[2] << "\n" << qual1 << "\n";
+        same2 << lines2[0] << "\n" << seq2 << "\n" << lines2[2] << "\n" << qual2 << "\n";
       }
 
       if (pairtype == "chim")
       {
-        chim1 << vector_join(lines1, "\n") << "\n";
-        chim2 << vector_join(lines2, "\n") << "\n";
+        chim1 << lines1[0] << "\n" << seq1 << "\n" << lines1[2] << "\n" << qual1 << "\n";
+        chim2 << lines2[0] << "\n" << seq2 << "\n" << lines2[2] << "\n" << qual2 << "\n";
       }
     }
 
