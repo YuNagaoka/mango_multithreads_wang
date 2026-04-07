@@ -20,6 +20,42 @@ using namespace Rcpp;
 using namespace std;
 
 
+// Define a function that returns the strand
+std::string get_strand( unsigned long x ) {
+    std::string strand = "+";
+    if ( x & 0x10 )
+    {
+        strand = "-";
+    }
+    return strand;
+}
+
+// Define a function that converts string to int
+int StringToInt(std::string Text) {
+    int output;
+    if (!(istringstream(Text) >> output)) output = 0;
+    return output;
+}
+
+// Define a function that converts int to string 
+std::string IntToString( int Number ) {
+    std::string Result;          // string which will contain the result
+    ostringstream convert;   // stream used for the conversion
+    convert << Number;      // insert the textual representation of 'Number' in the characters in the stream
+    Result = convert.str(); // set 'Result' to the contents of the stream
+    return Result;
+}
+
+
+// Define a function that converts number to string
+template <typename T>
+std::string NumberToString ( T Number )
+{
+  stringstream ss;
+	ss << Number;
+	return ss.str();
+}
+
 // Define a function that joins vectors of strings
 // [[Rcpp::export]]
 std::string vector_join( const std::vector<std::string>& v, const std::string& token ){
@@ -243,42 +279,6 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
   output.push_back(NumberToString(chimcount));
   output.push_back(NumberToString(ambicount));
   return output;
-}
-
-// Define a function that returns the strand
-std::string get_strand( unsigned long x ) {
-    std::string strand = "+";
-    if ( x & 0x10 )
-    {
-        strand = "-";
-    }
-    return strand;
-}
-
-// Define a function that converts string to int
-int StringToInt(std::string Text) {
-    int output;
-    if (!(istringstream(Text) >> output)) output = 0;
-    return output;
-}
-
-// Define a function that converts int to string 
-std::string IntToString( int Number ) {
-    std::string Result;          // string which will contain the result
-    ostringstream convert;   // stream used for the conversion
-    convert << Number;      // insert the textual representation of 'Number' in the characters in the stream
-    Result = convert.str(); // set 'Result' to the contents of the stream
-    return Result;
-}
-
-
-// Define a function that converts number to string
-template <typename T>
-std::string NumberToString ( T Number )
-{
-  stringstream ss;
-	ss << Number;
-	return ss.str();
 }
 
 // Define a function that builds a bedpe file rom 2 sam file
