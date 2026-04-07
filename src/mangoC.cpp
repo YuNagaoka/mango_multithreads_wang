@@ -48,236 +48,139 @@ std::vector<std::string> string_split( const std::string& s, const std::string& 
 
 // [[Rcpp::export]]
 std::vector< int > parseFastq(std::string fastq1, std::string fastq2,std::string basename,
-              int minlength = 15,int maxlength = 25,
-              bool keepempty = false, bool verbose = true,
-              std::string linker1 = "GTTGGATAAG" , std::string linker2 = "GTTGGAATGT",int numberlinkers = 2)
+ int minlength = 15,int maxlength = 25,
+ bool keepempty = false, bool verbose = true,
+ std::string linker1 = "GTTGGATAAG" , std::string linker2 = "GTTGGAATGT",int numberlinkers = 2)
 {
+ // arguments
+ string tmpfastq1 = fastq1;
+ string tmpfastq2 = fastq2;
+ bool remove_tmp1 = false;
+ bool remove_tmp2 = false;
 
-   // arguments
-	string tmpfastq1 = fastq1;
-	string tmpfastq2 = fastq2;
-	bool remove_tmp1 = false;
-	bool remove_tmp2 = false;
+ if (fastq1.size() >= 3 && fastq1.substr(fastq1.size() - 3) == ".gz")
+ {
+  tmpfastq1 = basename + "_1.input.tmp.fastq";
+  string cmd1 = "gzip -dc " + fastq1 + " > " + tmpfastq1;
+  system(cmd1.c_str());
+  remove_tmp1 = true;
+ }
 
-	if (fastq1.size() >= 3 && fastq1.substr(fastq1.size() - 3) == ".gz")
-	{
-  	tmpfastq1 = basename + "_1.input.tmp.fastq";
-  	string cmd1 = "gzip -dc " + fastq1 + " > " + tmpfastq1;
-  	system(cmd1.c_str());
-  	remove_tmp1 = true;
-	}
+ if (fastq2.size() >= 3 && fastq2.substr(fastq2.size() - 3) == ".gz")
+ {
+  tmpfastq2 = basename + "_2.input.tmp.fastq";
+  string cmd2 = "gzip -dc " + fastq2 + " > " + tmpfastq2;
+  system(cmd2.c_str());
+  remove_tmp2 = true;
+ }
 
-	if (fastq2.size() >= 3 && fastq2.substr(fastq2.size() - 3) == ".gz")
-	{
-  	tmpfastq2 = basename + "_2.input.tmp.fastq";
-  	string cmd2 = "gzip -dc " + fastq2 + " > " + tmpfastq2;
-  	system(cmd2.c_str());
-  	remove_tmp2 = true;
-	}
+ ifstream file1(tmpfastq1.c_str());
+ ifstream file2(tmpfastq2.c_str());
+ ofstream same1 ( (basename + "_1.same.fastq").c_str() );
+ ofstream same2 ( (basename + "_2.same.fastq").c_str() );
+ ofstream chim1 ( (basename + "_1.chim.fastq").c_str() );
+ ofstream chim2 ( (basename + "_2.chim.fastq").c_str() );
 
-	ifstream file1(tmpfastq1.c_str());
-	ifstream file2(tmpfastq2.c_str());
-	ofstream same1 ( (basename + "_1.same.fastq").c_str() );
-	ofstream same2 ( (basename + "_2.same.fastq").c_str() );
-	ofstream chim1 ( (basename + "_1.chim.fastq").c_str() );
-	ofstream chim2 ( (basename + "_2.chim.fastq").c_str() );
-    
-    // keep track of PET types
-    int samecount = 0;
-    int chimcount = 0;
-    int ambicount = 0;
-    
-    // define variables
-    std::string fqline1;
-    std::string fqline2;
-    int linecount = 0;
-    int i = 0;
-    std::vector<std::string> lines1;
-    std::vector<std::string> lines2;
-    
-    while (getline(file1, fqline1))
-    {
-        // read lines and increment counters
-        getline(file2, fqline2);
-        i++;
-        linecount++;
+ // define variables
+ std::vector< std::string > output;
+ std::string line1;
+ std::string line2;
+ std::string pairtype;
+ int petnumber = 0;
+ int samecount = 0;
+ int chimcount = 0;
+ int ambicount = 0;
 
-        // add lines to list
-        lines1.push_back(fqline1);
-        lines2.push_back(fqline2);
-        
-        // if list length is 4 perform operations, print, and clear lists
-        if ( i == 4 )
-        {
-            size_t r1l1found = -1;
-            size_t r1l2found = -1;
-            size_t r2l1found = -1;
-            size_t r2l2found = -1;
-            
-            // find the position of the linkers
-            if ( numberlinkers == 1 )
-            {
-               r1l1found = lines1[1].find(linker1);
-               //r1l2found = -1;
-               r2l1found = lines2[1].find(linker1);
-               //r2l2found = -1;
-            }
-            
-            if ( numberlinkers != 1 )
-            {
-               r1l1found = lines1[1].find(linker1);
-               r1l2found = lines1[1].find(linker2);
-               r2l1found = lines2[1].find(linker1);
-               r2l2found = lines2[1].find(linker2);
-            }
-            
-            
-            // determine the linker type (0 = none, 3 = both)
-            // read 1
-            int r1linker;
-            if (r1l1found == -1 & r1l2found == -1)
-            {
-                r1linker = 0;
-            }
-            else if (r1l1found != -1 & r1l2found == -1)
-            {
-                r1linker = 1;
-                lines1[1] =  lines1[1].substr (0,r1l1found);
-                lines1[3] =  lines1[3].substr (0,r1l1found);
-            }
-            else if (r1l1found == -1 & r1l2found != -1)
-            {
-                r1linker = 2;
-                lines1[1] =  lines1[1].substr (0,r1l2found);
-                lines1[3] =  lines1[3].substr (0,r1l2found);
-            }
-            else if (r1l1found != -1 & r1l2found != -1)
-            {
-                r1linker = 3;
-            }
-            
-            // read 2
-            int r2linker;
-            if (r2l1found == -1 & r2l2found == -1)
-            {
-                r2linker = 0;
-            }
-            else if (r2l1found != -1 & r2l2found == -1)
-            {
-                r2linker = 1;
-                lines2[1] =  lines2[1].substr (0,r2l1found);
-                lines2[3] =  lines2[3].substr (0,r2l1found);
-            }
-            else if (r2l1found == -1 & r2l2found != -1)
-            {
-                r2linker = 2;
-                lines2[1] =  lines2[1].substr (0,r2l2found);
-                lines2[3] =  lines2[3].substr (0,r2l2found);
-            }
-            else if (r2l1found != -1 & r2l2found != -1)
-            {
-                r2linker = 3;
-            }
-            
-            // determine pairtype
-            std::string pairtype = "unknown";
-            if ((r1linker == 1 && r2linker == 1) || (r1linker == 2 && r2linker == 2))
-            {
-                pairtype = "same";
-            }
-            if ((r1linker == 1 && r2linker == 2) || (r1linker == 2 && r2linker == 1))
-            {
-                pairtype = "chim";
-            }
-            if (r1linker == 3 || r2linker == 3)
-            {
-                pairtype = "ambi";   
-            }
-            if (keepempty == true)
-            {
-                if ((r1linker == 0 && r2linker == 1) ||
-                    (r1linker == 0 && r2linker == 2) ||
-                    (r1linker == 1 && r2linker == 0) ||
-                    (r1linker == 2 && r2linker == 0) ||
-                    (r1linker == 0 && r2linker == 0))
-                {
-                    pairtype = "same";
-                }
-            }
-            if (keepempty == false)
-            {
-                if (r1linker == 0 || r2linker == 0)
-                {
-                    pairtype = "ambi";
-                }
-            }
-            
-            // add to counters
-            if (pairtype == "same")
-            {
-              samecount++;
-            }
-            if (pairtype == "chim")
-            {
-              chimcount++;
-            }
-            if (pairtype == "ambi")
-            {
-              ambicount++;
-            }
-            
-            // determine if they pass the size requirements and print to output
-            if ((lines1[1].length() >= minlength ) &&  (lines1[1].length() <= maxlength ) &&
-                (lines2[1].length() >= minlength ) &&  (lines2[1].length() <= maxlength ))
-            {
-                if (pairtype == "same")
-                {
-                    same1 << vector_join(lines1,"\n");
-                    same2 << vector_join(lines2,"\n");
-                    same1 << "\n";
-                    same2 << "\n";
+ while (getline(file1, line1))
+ {
+  std::vector<std::string> lines1;
+  std::vector<std::string> lines2;
+  lines1.push_back(line1);
+  getline(file1, line1); lines1.push_back(line1);
+  getline(file1, line1); lines1.push_back(line1);
+  getline(file1, line1); lines1.push_back(line1);
 
-                }
-                if (pairtype == "chim")
-                {
-                    chim1 << vector_join(lines1,"\n");
-                    chim2 << vector_join(lines2,"\n");
-                    chim1 << "\n";
-                    chim2 << "\n";
-                }
-            }
-            
-            // reset lines
-            i = 0;
-            lines1.clear();
-            lines2.clear();
+  getline(file2, line2); lines2.push_back(line2);
+  getline(file2, line2); lines2.push_back(line2);
+  getline(file2, line2); lines2.push_back(line2);
+  getline(file2, line2); lines2.push_back(line2);
 
-        }
-        
-        // num % 2 computes the remainder when num is divided by 2
-        if ( linecount % 1000000 == 0 )
-        {
-            cout << linecount;
-            cout << "\n";
-            
-        }
-    }
-    
-    // close streams
-    same1.close();
-    same2.close();
-    chim1.close();
-    chim2.close();
-    file1.close();
-    file2.close();
-     
-    // report results
-    std::vector< int > parsingresults;
-    parsingresults.push_back(samecount);
-    parsingresults.push_back(chimcount);
-    parsingresults.push_back(ambicount);
+  petnumber++;
 
-    return parsingresults;
+  int r1linker = 0;
+  int r2linker = 0;
+
+  if (lines1[1].find(linker1) != std::string::npos) r1linker = 1;
+  if (lines1[1].find(linker2) != std::string::npos) r1linker = 2;
+  if (lines2[1].find(linker1) != std::string::npos) r2linker = 1;
+  if (lines2[1].find(linker2) != std::string::npos) r2linker = 2;
+
+  pairtype = "same";
+  if ((r1linker == 1 && r2linker == 2) || (r1linker == 2 && r2linker == 1)) pairtype = "chim";
+  if (r1linker == 3 || r2linker == 3) pairtype = "ambi";
+
+  if (keepempty == true)
+  {
+   if ((r1linker == 0 && r2linker == 1) ||
+       (r1linker == 0 && r2linker == 2) ||
+       (r1linker == 1 && r2linker == 0) ||
+       (r1linker == 2 && r2linker == 0) ||
+       (r1linker == 0 && r2linker == 0))
+   {
+    pairtype = "same";
+   }
+  }
+
+  if (keepempty == false)
+  {
+   if (r1linker == 0 || r2linker == 0)
+   {
+    pairtype = "ambi";
+   }
+  }
+
+  if (pairtype == "same") samecount++;
+  if (pairtype == "chim") chimcount++;
+  if (pairtype == "ambi") ambicount++;
+
+  if ((lines1[1].length() >= minlength ) && (lines1[1].length() <= maxlength ) &&
+      (lines2[1].length() >= minlength ) && (lines2[1].length() <= maxlength ))
+  {
+   if (pairtype == "same")
+   {
+    same1 << vector_join(lines1,"\n");
+    same2 << vector_join(lines2,"\n");
+    same1 << "\n";
+    same2 << "\n";
+   }
+
+   if (pairtype == "chim")
+   {
+    chim1 << vector_join(lines1,"\n");
+    chim2 << vector_join(lines2,"\n");
+    chim1 << "\n";
+    chim2 << "\n";
+   }
+  }
+
+  if (verbose == true && petnumber % 1000000 == 0) Rcpp::Rcout << petnumber << std::endl;
+ }
+
+ file1.close();
+ file2.close();
+ same1.close();
+ same2.close();
+ chim1.close();
+ chim2.close();
+
+ if (remove_tmp1) remove(tmpfastq1.c_str());
+ if (remove_tmp2) remove(tmpfastq2.c_str());
+
+ output.push_back(NumberToString(petnumber));
+ output.push_back(NumberToString(samecount));
+ output.push_back(NumberToString(chimcount));
+ output.push_back(NumberToString(ambicount));
+ return output;
 }
 
 // Define a function that returns the strand
