@@ -14,6 +14,8 @@ using namespace Rcpp;
 #include <sstream>
 #include <bitset>
 #include <map>
+#include <set>
+#include <cstdio>
 #include "mergesort.h"
 using namespace std;
 
@@ -47,140 +49,145 @@ std::vector<std::string> string_split( const std::string& s, const std::string& 
 }
 
 // [[Rcpp::export]]
-std::vector< int > parseFastq(std::string fastq1, std::string fastq2,std::string basename,
- int minlength = 15,int maxlength = 25,
+std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std::string basename,
+ int minlength = 15, int maxlength = 25,
  bool keepempty = false, bool verbose = true,
- std::string linker1 = "GTTGGATAAG" , std::string linker2 = "GTTGGAATGT",int numberlinkers = 2)
+ std::string linker1 = "GTTGGATAAG", std::string linker2 = "GTTGGAATGT", int numberlinkers = 2)
 {
- // arguments
- string tmpfastq1 = fastq1;
- string tmpfastq2 = fastq2;
- bool remove_tmp1 = false;
- bool remove_tmp2 = false;
+  string tmpfastq1 = fastq1;
+  string tmpfastq2 = fastq2;
+  bool remove_tmp1 = false;
+  bool remove_tmp2 = false;
 
- if (fastq1.size() >= 3 && fastq1.substr(fastq1.size() - 3) == ".gz")
- {
-  tmpfastq1 = basename + "_1.input.tmp.fastq";
-  string cmd1 = "gzip -dc " + fastq1 + " > " + tmpfastq1;
-  system(cmd1.c_str());
-  remove_tmp1 = true;
- }
-
- if (fastq2.size() >= 3 && fastq2.substr(fastq2.size() - 3) == ".gz")
- {
-  tmpfastq2 = basename + "_2.input.tmp.fastq";
-  string cmd2 = "gzip -dc " + fastq2 + " > " + tmpfastq2;
-  system(cmd2.c_str());
-  remove_tmp2 = true;
- }
-
- ifstream file1(tmpfastq1.c_str());
- ifstream file2(tmpfastq2.c_str());
- ofstream same1 ( (basename + "_1.same.fastq").c_str() );
- ofstream same2 ( (basename + "_2.same.fastq").c_str() );
- ofstream chim1 ( (basename + "_1.chim.fastq").c_str() );
- ofstream chim2 ( (basename + "_2.chim.fastq").c_str() );
-
- // define variables
- std::vector< std::string > output;
- std::string line1;
- std::string line2;
- std::string pairtype;
- int petnumber = 0;
- int samecount = 0;
- int chimcount = 0;
- int ambicount = 0;
-
- while (getline(file1, line1))
- {
-  std::vector<std::string> lines1;
-  std::vector<std::string> lines2;
-  lines1.push_back(line1);
-  getline(file1, line1); lines1.push_back(line1);
-  getline(file1, line1); lines1.push_back(line1);
-  getline(file1, line1); lines1.push_back(line1);
-
-  getline(file2, line2); lines2.push_back(line2);
-  getline(file2, line2); lines2.push_back(line2);
-  getline(file2, line2); lines2.push_back(line2);
-  getline(file2, line2); lines2.push_back(line2);
-
-  petnumber++;
-
-  int r1linker = 0;
-  int r2linker = 0;
-
-  if (lines1[1].find(linker1) != std::string::npos) r1linker = 1;
-  if (lines1[1].find(linker2) != std::string::npos) r1linker = 2;
-  if (lines2[1].find(linker1) != std::string::npos) r2linker = 1;
-  if (lines2[1].find(linker2) != std::string::npos) r2linker = 2;
-
-  pairtype = "same";
-  if ((r1linker == 1 && r2linker == 2) || (r1linker == 2 && r2linker == 1)) pairtype = "chim";
-  if (r1linker == 3 || r2linker == 3) pairtype = "ambi";
-
-  if (keepempty == true)
+  if (fastq1.size() >= 3 && fastq1.substr(fastq1.size() - 3) == ".gz")
   {
-   if ((r1linker == 0 && r2linker == 1) ||
-       (r1linker == 0 && r2linker == 2) ||
-       (r1linker == 1 && r2linker == 0) ||
-       (r1linker == 2 && r2linker == 0) ||
-       (r1linker == 0 && r2linker == 0))
-   {
+    tmpfastq1 = basename + "_1.input.tmp.fastq";
+    string cmd1 = "gzip -dc " + fastq1 + " > " + tmpfastq1;
+    system(cmd1.c_str());
+    remove_tmp1 = true;
+  }
+
+  if (fastq2.size() >= 3 && fastq2.substr(fastq2.size() - 3) == ".gz")
+  {
+    tmpfastq2 = basename + "_2.input.tmp.fastq";
+    string cmd2 = "gzip -dc " + fastq2 + " > " + tmpfastq2;
+    system(cmd2.c_str());
+    remove_tmp2 = true;
+  }
+
+  ifstream file1(tmpfastq1.c_str());
+  ifstream file2(tmpfastq2.c_str());
+  ofstream same1((basename + "_1.same.fastq").c_str());
+  ofstream same2((basename + "_2.same.fastq").c_str());
+  ofstream chim1((basename + "_1.chim.fastq").c_str());
+  ofstream chim2((basename + "_2.chim.fastq").c_str());
+
+  std::vector<std::string> output;
+  std::string line1;
+  std::string line2;
+  std::string pairtype;
+  int petnumber = 0;
+  int samecount = 0;
+  int chimcount = 0;
+  int ambicount = 0;
+
+  while (getline(file1, line1))
+  {
+    std::vector<std::string> lines1;
+    std::vector<std::string> lines2;
+
+    lines1.push_back(line1);
+    if (!getline(file1, line1)) break; lines1.push_back(line1);
+    if (!getline(file1, line1)) break; lines1.push_back(line1);
+    if (!getline(file1, line1)) break; lines1.push_back(line1);
+
+    if (!getline(file2, line2)) break; lines2.push_back(line2);
+    if (!getline(file2, line2)) break; lines2.push_back(line2);
+    if (!getline(file2, line2)) break; lines2.push_back(line2);
+    if (!getline(file2, line2)) break; lines2.push_back(line2);
+
+    petnumber++;
+
+    int r1linker = 0;
+    int r2linker = 0;
+
+    bool r1_has_linker1 = (lines1[1].find(linker1) != std::string::npos);
+    bool r1_has_linker2 = (lines1[1].find(linker2) != std::string::npos);
+    bool r2_has_linker1 = (lines2[1].find(linker1) != std::string::npos);
+    bool r2_has_linker2 = (lines2[1].find(linker2) != std::string::npos);
+
+    if (r1_has_linker1 && r1_has_linker2) r1linker = 3;
+    else if (r1_has_linker1) r1linker = 1;
+    else if (r1_has_linker2) r1linker = 2;
+
+    if (r2_has_linker1 && r2_has_linker2) r2linker = 3;
+    else if (r2_has_linker1) r2linker = 1;
+    else if (r2_has_linker2) r2linker = 2;
+
     pairtype = "same";
-   }
+    if ((r1linker == 1 && r2linker == 2) || (r1linker == 2 && r2linker == 1)) pairtype = "chim";
+    if (r1linker == 3 || r2linker == 3) pairtype = "ambi";
+
+    if (keepempty == true)
+    {
+      if ((r1linker == 0 && r2linker == 1) ||
+          (r1linker == 0 && r2linker == 2) ||
+          (r1linker == 1 && r2linker == 0) ||
+          (r1linker == 2 && r2linker == 0) ||
+          (r1linker == 0 && r2linker == 0))
+      {
+        pairtype = "same";
+      }
+    }
+    else
+    {
+      if (r1linker == 0 || r2linker == 0)
+      {
+        pairtype = "ambi";
+      }
+    }
+
+    if (pairtype == "same") samecount++;
+    if (pairtype == "chim") chimcount++;
+    if (pairtype == "ambi") ambicount++;
+
+    if ((lines1[1].length() >= (size_t)minlength) && (lines1[1].length() <= (size_t)maxlength) &&
+        (lines2[1].length() >= (size_t)minlength) && (lines2[1].length() <= (size_t)maxlength))
+    {
+      if (pairtype == "same")
+      {
+        same1 << vector_join(lines1, "\n") << "\n";
+        same2 << vector_join(lines2, "\n") << "\n";
+      }
+
+      if (pairtype == "chim")
+      {
+        chim1 << vector_join(lines1, "\n") << "\n";
+        chim2 << vector_join(lines2, "\n") << "\n";
+      }
+    }
+
+    if (verbose == true && petnumber % 1000000 == 0)
+    {
+      Rcpp::Rcout << petnumber << std::endl;
+    }
   }
 
-  if (keepempty == false)
-  {
-   if (r1linker == 0 || r2linker == 0)
-   {
-    pairtype = "ambi";
-   }
-  }
+  file1.close();
+  file2.close();
+  same1.close();
+  same2.close();
+  chim1.close();
+  chim2.close();
 
-  if (pairtype == "same") samecount++;
-  if (pairtype == "chim") chimcount++;
-  if (pairtype == "ambi") ambicount++;
+  if (remove_tmp1) remove(tmpfastq1.c_str());
+  if (remove_tmp2) remove(tmpfastq2.c_str());
 
-  if ((lines1[1].length() >= minlength ) && (lines1[1].length() <= maxlength ) &&
-      (lines2[1].length() >= minlength ) && (lines2[1].length() <= maxlength ))
-  {
-   if (pairtype == "same")
-   {
-    same1 << vector_join(lines1,"\n");
-    same2 << vector_join(lines2,"\n");
-    same1 << "\n";
-    same2 << "\n";
-   }
-
-   if (pairtype == "chim")
-   {
-    chim1 << vector_join(lines1,"\n");
-    chim2 << vector_join(lines2,"\n");
-    chim1 << "\n";
-    chim2 << "\n";
-   }
-  }
-
-  if (verbose == true && petnumber % 1000000 == 0) Rcpp::Rcout << petnumber << std::endl;
- }
-
- file1.close();
- file2.close();
- same1.close();
- same2.close();
- chim1.close();
- chim2.close();
-
- if (remove_tmp1) remove(tmpfastq1.c_str());
- if (remove_tmp2) remove(tmpfastq2.c_str());
-
- output.push_back(NumberToString(petnumber));
- output.push_back(NumberToString(samecount));
- output.push_back(NumberToString(chimcount));
- output.push_back(NumberToString(ambicount));
- return output;
+  output.push_back(NumberToString(petnumber));
+  output.push_back(NumberToString(samecount));
+  output.push_back(NumberToString(chimcount));
+  output.push_back(NumberToString(ambicount));
+  return output;
 }
 
 // Define a function that returns the strand
@@ -194,20 +201,10 @@ std::string get_strand( unsigned long x ) {
 }
 
 // Define a function that converts string to int
-int StringToInt( std::string Text ) {
+int StringToInt(std::string Text) {
     int output;
-    if ( ! (istringstream(Text) >> output) ) output = 0;
-	
-    file1.close();
-	file2.close();
-	same1.close();
-	same2.close();
-	chim1.close();
-	chim2.close();
-	if (remove_tmp1) remove(tmpfastq1.c_str());
-	if (remove_tmp2) remove(tmpfastq2.c_str());
-	
-	return output;
+    if (!(istringstream(Text) >> output)) output = 0;
+    return output;
 }
 
 // Define a function that converts int to string 
@@ -279,7 +276,7 @@ void buildBedpe(std::string sam1, std::string sam2,std::string bedpefile)
         int stop2  = start2 + sequence2.length();
         
         // skip double stars
-        if ((chrom1 == "*") & (chrom2 == "*"))
+        if ((chrom1 == "*") && (chrom2 == "*"))
         {
           continue;
         }
@@ -293,19 +290,19 @@ void buildBedpe(std::string sam1, std::string sam2,std::string bedpefile)
         
         // determine which read goes first
         bool reorder = false;
-        if ((chrom1 == chrom2) & (start1 > start2) )
+        if ((chrom1 == chrom2) && (start1 > start2) )
         {
             reorder = true;
         }
-        if ((chrom1 != chrom2) & (chrom1 > chrom2) )
+        if ((chrom1 != chrom2) && (chrom1 > chrom2) )
         {
             reorder = true;
         }
-        if ((chrom1 != chrom2) & (chrom1 == "*") )
+        if ((chrom1 != chrom2) && (chrom1 == "*") )
         {
             reorder = true;
         }
-        if ((chrom1 != chrom2) & (chrom2 == "*") )
+        if ((chrom1 != chrom2) && (chrom2 == "*") )
         {
             reorder = false;
         }
@@ -522,9 +519,9 @@ void findPairs(std::string overlapfile, std::string petpairsfile,std::string int
         //peakinfodict[peakname].intra++;
         
         // add info to readpeak dict
-        if (readpeakdict.find(peakname) == readpeakdict.end())
+        if (readpeakdict.find(readname) == readpeakdict.end())
         {
-            std::vector<std::string> v = *(new std::vector<std::string>);
+            std::vector<std::string> v;
             readpeakdict.insert(std::pair<string,std::vector<std::string> > (readname, v));
         }
         readpeakdict[readname].push_back(peakname);
@@ -703,7 +700,7 @@ std::vector<std::string> splitBedbyChrom(std::string bedfile,std::string outname
         
         // add output string to dcit if neccesary
         std::string chrom = currEall[0];
-        if ( (readoutput.find(chrom) == readoutput.end()) & (chrom != "*" )  ) {
+        if ( (readoutput.find(chrom) == readoutput.end()) && (chrom != "*" )  ) {
             std::string outname = outnamebase + "." + chrom  + ".bed";
             readoutput[chrom] = new std::ofstream(outname.c_str());
         }
@@ -730,50 +727,38 @@ std::vector<std::string> splitBedbyChrom(std::string bedfile,std::string outname
 
 // Define a function splits bedpe file into reads and PETs by chromosome
 // [[Rcpp::export]]
-void makeDistanceFile(std::string bedpefilesortrmdup,std::string distancefile,int mindist, int maxdist)
+void makeDistanceFile(std::string bedpefilesortrmdup, std::string distancefile, int mindist, int maxdist)
 {
-    // streams
-    ifstream filein  (bedpefilesortrmdup.c_str());
-    ofstream fileout (distancefile.c_str());
+    ifstream filein(bedpefilesortrmdup.c_str());
+    ofstream fileout(distancefile.c_str());
 
-    
-    // read in file line by line and make same dif calls
     std::string line;
     while (getline(filein, line))
     {
-        // split lines
-        std::vector<std::string> currEall = string_split(line,"\t");
-        
-        // skip unmapped and inter chrom
-        if ((currEall[0] != currEall[3]) || (currEall[0] == "*")  ||  (currEall[3] == "*"))
+        std::vector<std::string> currEall = string_split(line, "\t");
+
+        if ((currEall[0] != currEall[3]) || (currEall[0] == "*") || (currEall[3] == "*"))
         {
-          continue;
+            continue;
         }
-        
-        // determine distance
-        std:string distance = IntToString((StringToInt(currEall[5]) + StringToInt(currEall[4]))
-        / 2 - (StringToInt(currEall[2]) + StringToInt(currEall[1])) / 2);
-        
-        // determine orientation
+
+        std::string distance = IntToString(
+            (StringToInt(currEall[5]) + StringToInt(currEall[4])) / 2 -
+            (StringToInt(currEall[2]) + StringToInt(currEall[1])) / 2
+        );
+
         std::string pairtype = "D";
         if (currEall[8] == currEall[9])
         {
-          pairtype = "S";
+            pairtype = "S";
         }
-        
-        
-        if (StringToInt(distance) > mindist & StringToInt(distance) < maxdist)
+
+        if (StringToInt(distance) > mindist && StringToInt(distance) < maxdist)
         {
-          fileout << distance + "\t" + pairtype + "\n";
+            fileout << distance << "\t" << pairtype << "\n";
         }
-    
-        // make reads
-        std::vector<std::string> read1vec;
-        read1vec.push_back(currEall[0]);
-        read1vec.push_back(currEall[1]);
     }
 
-    // close files
     filein.close();
     fileout.close();
 }
@@ -1035,13 +1020,13 @@ std::vector<std::string> splitBedpe(std::string bedpein,std::string outnamebase,
         {
           // print reads
           
-          if ( (readoutput.find(chrom1) == readoutput.end()) & (chrom1 != "*" )  ) {  
+          if ( (readoutput.find(chrom1) == readoutput.end()) && (chrom1 != "*" )  ) {  
               std::string outname = outnamebase + "." + chrom1 + ".bed";
               readoutput[chrom1] = new std::ofstream(outname.c_str());
               outputvectorReads.push_back( chrom1);  
           }
           
-          if ( (readoutput.find(chrom2) == readoutput.end()) & (chrom2 != "*" ) ) {
+          if ( (readoutput.find(chrom2) == readoutput.end()) && (chrom2 != "*" ) ) {
               std::string outname = outnamebase + "." + chrom2 + ".bed";
               readoutput[chrom2] = new std::ofstream(outname.c_str());
               outputvectorReads.push_back( chrom2);  
@@ -1062,7 +1047,7 @@ std::vector<std::string> splitBedpe(std::string bedpein,std::string outnamebase,
         
         if (skipstars == true)
         {
-          if ((chrom1 == "*") | (chrom2 == "*"))
+          if ((chrom1 == "*") || (chrom2 == "*"))
           {
               continue;
           }
@@ -1251,7 +1236,3 @@ void AddQvals(std::string interactionfile, std::string interactionfilefinal,std:
     outfile.close();
   
 }
-
-
-
-
