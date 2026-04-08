@@ -67,6 +67,13 @@ std::string vector_join( const std::vector<std::string>& v, const std::string& t
     return result.str();
 }
 
+// Strip common paired-FASTQ /1 or /2 suffix from a SAM read name
+static inline std::string strip_pair_suffix(std::string name) {
+    if (name.size() >= 2 && name[name.size() - 2] == '/' && isdigit(name[name.size() - 1]))
+        name = name.substr(0, name.size() - 2);
+    return name;
+}
+
 // Define a function that splits strings into vector
 // [[Rcpp::export]]
 std::vector<std::string> string_split( const std::string& s, const std::string& delimiter ){
@@ -311,6 +318,7 @@ void buildBedpe(std::string sam1, std::string sam2,std::string bedpefile)
         name1 = string_split(name1,"_")[0];
         name1 = string_split(name1," ")[0];
         name1 = string_split(name1,"#")[0];
+        name1 = strip_pair_suffix(name1);
         int bitflag1 = StringToInt(e1[1]);
         std::string strand1 = get_strand(bitflag1);
         std::string sequence1 = e1[9];
@@ -323,6 +331,7 @@ void buildBedpe(std::string sam1, std::string sam2,std::string bedpefile)
         name2 = string_split(name2,"_")[0];
         name2 = string_split(name2," ")[0];
         name2 = string_split(name2,"#")[0];
+        name2 = strip_pair_suffix(name2);
         int bitflag2 = StringToInt(e2[1]);
         std::string strand2 = get_strand(bitflag2);
         std::string sequence2 = e2[9];
