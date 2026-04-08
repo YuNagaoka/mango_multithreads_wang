@@ -311,6 +311,8 @@ void buildBedpe(std::string sam1, std::string sam2,std::string bedpefile)
         name1 = string_split(name1,"_")[0];
         name1 = string_split(name1," ")[0];
         name1 = string_split(name1,"#")[0];
+        if (name1.size() >= 2 && name1[name1.size()-2] == '/' && isdigit(name1[name1.size()-1]))
+            name1 = name1.substr(0, name1.size() - 2);
         int bitflag1 = StringToInt(e1[1]);
         std::string strand1 = get_strand(bitflag1);
         std::string sequence1 = e1[9];
@@ -323,6 +325,8 @@ void buildBedpe(std::string sam1, std::string sam2,std::string bedpefile)
         name2 = string_split(name2,"_")[0];
         name2 = string_split(name2," ")[0];
         name2 = string_split(name2,"#")[0];
+        if (name2.size() >= 2 && name2[name2.size()-2] == '/' && isdigit(name2[name2.size()-1]))
+            name2 = name2.substr(0, name2.size() - 2);
         int bitflag2 = StringToInt(e2[1]);
         std::string strand2 = get_strand(bitflag2);
         std::string sequence2 = e2[9];
