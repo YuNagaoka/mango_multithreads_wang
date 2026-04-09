@@ -14,6 +14,7 @@ using namespace Rcpp;
 #include <sstream>
 #include <bitset>
 #include <map>
+#include <unordered_map>
 #include <set>
 #include <cstdio>
 #include "mergesort.h"
@@ -288,89 +289,97 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
   return output;
 }
 
+// Normalise a raw SAM QNAME to a canonical read name used for pairing
+static inline std::string normalise_qname(const std::string& raw)
+{
+    std::string name = string_split(raw, "_")[0];
+    name = string_split(name, " ")[0];
+    name = string_split(name, "#")[0];
+    name = strip_pair_suffix(name);
+    return name;
+}
+
 // Define a function that builds a bedpe file rom 2 sam file
 // [[Rcpp::export]]
 void buildBedpe(std::string sam1, std::string sam2,std::string bedpefile)
 {
-    
-    // arguments
-    ifstream file1(sam1.c_str());
-    ifstream file2(sam2.c_str());
-    ofstream bedpefilestream ( bedpefile.c_str() );
-
-    // define variables
-    std::string line1;
-    std::string line2;
-    int linecount = 0;
-    
-    while (getline(file1, line1))
+    // Load SAM1 into a hash map keyed by normalised read name.
+    // This handles reads that are suppressed or reordered differently in the
+    // two SAM files (e.g. due to bowtie -m 1 or multi-threaded alignment).
+    std::unordered_map<std::string, std::string> sam1map;
     {
-        // read lines and increment counter
-        getline(file2, line2);
-        linecount++;
-        
-        // split lines
-        std::vector<std::string> e1 = string_split(line1,"\t");
-        std::vector<std::string> e2 = string_split(line2,"\t");
-        
+        ifstream file1(sam1.c_str());
+        std::string line1;
+        while (getline(file1, line1))
+        {
+            std::vector<std::string> e1 = string_split(line1, "\t");
+            if (e1.size() < 10) continue;
+            std::string name1 = normalise_qname(e1[0]);
+            sam1map[name1] = line1;
+        }
+    }
+
+    // Iterate SAM2 and look up each read's partner in the SAM1 map.
+    // Reads without a partner (suppressed in the other file) are skipped.
+    ifstream file2(sam2.c_str());
+    ofstream bedpefilestream(bedpefile.c_str());
+    std::string line2;
+
+    while (getline(file2, line2))
+    {
+        std::vector<std::string> e2 = string_split(line2, "\t");
+        if (e2.size() < 10) continue;
+
+        std::string name2 = normalise_qname(e2[0]);
+
+        auto it = sam1map.find(name2);
+        if (it == sam1map.end()) continue; // partner suppressed in SAM1, skip
+
+        std::vector<std::string> e1 = string_split(it->second, "\t");
+        if (e1.size() < 10) continue;
+
         // get info for file 1
-        std::string name1 = e1[0];
-        name1 = string_split(name1,"_")[0];
-        name1 = string_split(name1," ")[0];
-        name1 = string_split(name1,"#")[0];
-        name1 = strip_pair_suffix(name1);
-        int bitflag1 = StringToInt(e1[1]);
-        std::string strand1 = get_strand(bitflag1);
+        std::string name1    = normalise_qname(e1[0]);
+        int bitflag1         = StringToInt(e1[1]);
+        std::string strand1  = get_strand(bitflag1);
         std::string sequence1 = e1[9];
-        std::string chrom1 = e1[2];
-        int start1 = StringToInt(e1[3]) -1;
-        int stop1  = start1 + sequence1.length();
-        
+        std::string chrom1   = e1[2];
+        int start1           = StringToInt(e1[3]) - 1;
+        int stop1            = start1 + (int)sequence1.length();
+
         // get info for file 2
-        std::string name2 = e2[0];
-        name2 = string_split(name2,"_")[0];
-        name2 = string_split(name2," ")[0];
-        name2 = string_split(name2,"#")[0];
-        name2 = strip_pair_suffix(name2);
-        int bitflag2 = StringToInt(e2[1]);
-        std::string strand2 = get_strand(bitflag2);
+        int bitflag2         = StringToInt(e2[1]);
+        std::string strand2  = get_strand(bitflag2);
         std::string sequence2 = e2[9];
-        std::string chrom2 = e2[2];
-        int start2 = StringToInt(e2[3]) -1;
-        int stop2  = start2 + sequence2.length();
-        
+        std::string chrom2   = e2[2];
+        int start2           = StringToInt(e2[3]) - 1;
+        int stop2            = start2 + (int)sequence2.length();
+
         // skip double stars
         if ((chrom1 == "*") && (chrom2 == "*"))
         {
-          continue;
+            continue;
         }
-        
-        // check that read names match
-        if (name1 != name2)
-        {
-            cout << "Error: read names of PET ends do not match";
-            break;
-        }
-        
+
         // determine which read goes first
         bool reorder = false;
-        if ((chrom1 == chrom2) && (start1 > start2) )
+        if ((chrom1 == chrom2) && (start1 > start2))
         {
             reorder = true;
         }
-        if ((chrom1 != chrom2) && (chrom1 > chrom2) )
+        if ((chrom1 != chrom2) && (chrom1 > chrom2))
         {
             reorder = true;
         }
-        if ((chrom1 != chrom2) && (chrom1 == "*") )
+        if ((chrom1 != chrom2) && (chrom1 == "*"))
         {
             reorder = true;
         }
-        if ((chrom1 != chrom2) && (chrom2 == "*") )
+        if ((chrom1 != chrom2) && (chrom2 == "*"))
         {
             reorder = false;
         }
-        
+
         // print out results
         if (reorder == false)
         {
@@ -385,11 +394,11 @@ void buildBedpe(std::string sam1, std::string sam2,std::string bedpefile)
             outputvector.push_back(".");
             outputvector.push_back(strand1);
             outputvector.push_back(strand2);
-            std::string outputstring = vector_join(outputvector,"\t");
+            std::string outputstring = vector_join(outputvector, "\t");
             bedpefilestream << outputstring;
             bedpefilestream << "\n";
         }
-        
+
         if (reorder == true)
         {
             std::vector<std::string> outputvector;
@@ -403,7 +412,7 @@ void buildBedpe(std::string sam1, std::string sam2,std::string bedpefile)
             outputvector.push_back(".");
             outputvector.push_back(strand2);
             outputvector.push_back(strand1);
-            std::string outputstring = vector_join(outputvector,"\t");
+            std::string outputstring = vector_join(outputvector, "\t");
             bedpefilestream << outputstring;
             bedpefilestream << "\n";
         }
