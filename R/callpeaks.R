@@ -16,7 +16,12 @@ callpeaks <- function(macs2path,tagAlignfile,peaksfile,qvalue=0.05,
 
   command = paste(macs2path," callpeak -t ",tagAlignfile, shiftsize ," -g ",gsize,  " -f BED -n ",peaksfile," -q ",qvalue,sep=" ")
   print (command)
-  system(command)
+  exitcode = system(command)
+  if (exitcode != 0)
+  {
+    stop(paste("macs2 callpeak failed with exit code", exitcode,
+               "- check that the tagAlign file is valid and macs2 is installed correctly"))
+  }
   
   # now shorten peak names
   peaks = read.table(paste(peaksfile,"_peaks.narrowPeak",sep=""),header=FALSE,sep="\t")
