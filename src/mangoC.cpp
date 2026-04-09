@@ -1206,7 +1206,7 @@ void buildTagAlign(std::string bedpefile, std::string TagAlignfile) {
           outputvector.push_back(e[1]);
           outputvector.push_back(e[2]);
           outputvector.push_back(e[6]);
-          outputvector.push_back(".");
+          outputvector.push_back("0");
           outputvector.push_back(e[8]);
           std::string outputstring = vector_join(outputvector,"\t");
           outfile << outputstring;
@@ -1220,7 +1220,7 @@ void buildTagAlign(std::string bedpefile, std::string TagAlignfile) {
           outputvector2.push_back(e[4]);
           outputvector2.push_back(e[5]);
           outputvector2.push_back(e[6]);
-          outputvector2.push_back(".");
+          outputvector2.push_back("0");
           outputvector2.push_back(e[9]);
           std::string outputstring2 = vector_join(outputvector2,"\t");
           outfile << outputstring2;
