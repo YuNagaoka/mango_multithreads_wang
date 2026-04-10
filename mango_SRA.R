@@ -562,6 +562,40 @@ if (5 %in% opt$stages)
   # calculate depths
   putpairs$depths = calcDepths(putpairs[,10:11],type="product")
   
+  # handle case where there are no putative pairs after filtering
+  if (nrow(putpairs) == 0)
+  {
+    warning("No putative interactions remain after distance filtering. Writing empty output files.")
+    putpairs_empty = data.frame(chrom1=character(),start1=integer(),end1=integer(),
+                                chrom2=character(),start2=integer(),end2=integer(),
+                                name=character(),peak1=character(),peak2=character(),
+                                PETs=integer(),distance=numeric(),
+                                P_IAB_distance=numeric(),P_combos_distance=numeric(),
+                                P_IAB_depth=numeric(),P_combos_depth=numeric(),
+                                p_binom=numeric(),P=numeric(),Q=numeric())
+    sig_empty = putpairs_empty
+    if (verboseoutput == TRUE)
+    {
+      if (reportallpairs == TRUE) write.table(x=putpairs_empty,file=allpairsfile,quote=FALSE,sep="\t",row.names=FALSE)
+      write.table(x=sig_empty,file=fdrpairsfile,quote=FALSE,sep="\t",row.names=FALSE)
+    }
+    if (verboseoutput == FALSE)
+    {
+      if (reportallpairs == TRUE) write.table(x=putpairs_empty[,c("chrom1","start1","end1","chrom2","start2","end2","PETs","Q")],file=allpairsfile,quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
+      write.table(x=sig_empty[,c("chrom1","start1","end1","chrom2","start2","end2","PETs","Q")],file=fdrpairsfile,quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
+    }
+    resultshash[["putative interactions"]]    = 0
+    resultshash[["significant interactions"]] = 0
+  } else {
+
+  # reduce numofbins if there are fewer putative pairs than bins
+  if (nrow(putpairs) < numofbins)
+  {
+    warning(paste("Number of putative pairs (", nrow(putpairs), ") is less than numofbins (", numofbins,
+                  "). Reducing numofbins to", nrow(putpairs), "to avoid errors."))
+    numofbins = nrow(putpairs)
+  }
+
   totalcombos = 0
   for (reps in (1:2))
   {
@@ -574,7 +608,8 @@ if (5 %in% opt$stages)
     distance_IAB_model = model_chia(x=putpairs$distances,y=putpairs[,12],borders=distanceborders,yvals=TRUE)
     distance_IAB_model_file   = paste(outname ,".distance_IAB_model.",reps, ".text",sep="")
     write.table(distance_IAB_model,file=distance_IAB_model_file,quote = FALSE, sep = "\t",row.names = FALSE,col.names = TRUE)
-    distance_IAB_spline =   smooth.spline(log10(distance_IAB_model[,1]),distance_IAB_model[,3],spar=.75)
+    dist_IAB_valid = !is.nan(distance_IAB_model[,1]) & !is.na(distance_IAB_model[,1])
+    distance_IAB_spline =   smooth.spline(log10(distance_IAB_model[dist_IAB_valid,1]),distance_IAB_model[dist_IAB_valid,3],spar=.75)
     
     #--------------- Depth Normalization ---------------#
     
@@ -585,19 +620,22 @@ if (5 %in% opt$stages)
     depth_IAB_model = model_chia(x=putpairs$depths,y=putpairs[,12],borders=depthborders,yvals=TRUE)
     depth_IAB_model_file   = paste(outname ,".depth_IAB_model.",reps, ".text",sep="")
     write.table(depth_IAB_model,file=depth_IAB_model_file,quote = FALSE, sep = "\t",row.names = FALSE,col.names = TRUE)
-    depth_IAB_spline =   smooth.spline(log10(depth_IAB_model[,1]),depth_IAB_model[,3],spar=.75)
+    depth_IAB_valid = !is.nan(depth_IAB_model[,1]) & !is.na(depth_IAB_model[,1])
+    depth_IAB_spline =   smooth.spline(log10(depth_IAB_model[depth_IAB_valid,1]),depth_IAB_model[depth_IAB_valid,3],spar=.75)
     
     # model Combos vs distance
-    meanofx_dist  = rep(0,numofbins)
-    sumofy_dist   = rep(0,numofbins)
-    pvals_dist    = rep(0,numofbins)
-    sumofx_dist   = rep(0,numofbins)
-    countofx_dist = rep(0,numofbins)
-    meanofx_depth  = rep(0,numofbins)
-    sumofy_depth   = rep(0,numofbins)
-    pvals_depth    = rep(0,numofbins)
-    sumofx_depth   = rep(0,numofbins)
-    countofx_depth = rep(0,numofbins)
+    nbins_dist  = nrow(distance_IAB_model)
+    nbins_depth = nrow(depth_IAB_model)
+    meanofx_dist  = rep(0,nbins_dist)
+    sumofy_dist   = rep(0,nbins_dist)
+    pvals_dist    = rep(0,nbins_dist)
+    sumofx_dist   = rep(0,nbins_dist)
+    countofx_dist = rep(0,nbins_dist)
+    meanofx_depth  = rep(0,nbins_depth)
+    sumofy_depth   = rep(0,nbins_depth)
+    pvals_depth    = rep(0,nbins_depth)
+    sumofx_depth   = rep(0,nbins_depth)
+    countofx_depth = rep(0,nbins_depth)
 
     for (chrom in chromosomes)
     {
@@ -635,8 +673,8 @@ if (5 %in% opt$stages)
     distance_combo_model_file   = paste(outname ,".distance_combo_model.",reps, ".text",sep="")
     write.table(distance_combo_model,file=distance_combo_model_file,quote = FALSE, sep = "\t",row.names = FALSE,col.names = TRUE)
     
-    depth_combo_spline    =   smooth.spline(log10(depth_combo_model[,1]),depth_combo_model[,3],spar=.75)
-    distance_combo_spline =   smooth.spline(log10(distance_combo_model[,1]),distance_combo_model[,3],spar=.75)
+    depth_combo_spline    =   smooth.spline(log10(depth_combo_model[!is.nan(depth_combo_model[,1]) & !is.na(depth_combo_model[,1]),1]),depth_combo_model[!is.nan(depth_combo_model[,1]) & !is.na(depth_combo_model[,1]),3],spar=.75)
+    distance_combo_spline =   smooth.spline(log10(distance_combo_model[!is.nan(distance_combo_model[,1]) & !is.na(distance_combo_model[,1]),1]),distance_combo_model[!is.nan(distance_combo_model[,1]) & !is.na(distance_combo_model[,1]),3],spar=.75)
 
     if (reps == 2)
     {
@@ -774,6 +812,8 @@ if (5 %in% opt$stages)
   lines(x=log10(depth_combo_model[,1]),   predict(depth_combo_spline,log10(depth_combo_model[,1]))$y)
   dev.off()
   
+  } # end of non-empty putpairs block
+
   #--------------- Delete temporary files ---------------#
   
   # clean up extra files
