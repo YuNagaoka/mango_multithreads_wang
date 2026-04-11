@@ -256,6 +256,7 @@ for (line in lines)
 }
        
 resultshash = hash()
+stage5_warnings = c()
 
 ##################################### parse fastqs #####################################
 
@@ -561,7 +562,75 @@ if (5 %in% opt$stages)
   
   # calculate depths
   putpairs$depths = calcDepths(putpairs[,10:11],type="product")
-  
+
+  # handle case where there are no putative pairs after filtering
+  if (nrow(putpairs) == 0)
+  {
+    msg = "No putative interactions remain after distance filtering. Writing empty output files."
+    warning(msg)
+    stage5_warnings = c(stage5_warnings, msg)
+    putpairs_empty = data.frame(chrom1=character(),start1=integer(),end1=integer(),
+                                chrom2=character(),start2=integer(),end2=integer(),
+                                name=character(),peak1=character(),peak2=character(),
+                                PETs=integer(),distance=numeric(),
+                                P_IAB_distance=numeric(),P_combos_distance=numeric(),
+                                P_IAB_depth=numeric(),P_combos_depth=numeric(),
+                                p_binom=numeric(),P=numeric(),Q=numeric())
+    sig_empty = putpairs_empty
+    if (verboseoutput == TRUE)
+    {
+      if (reportallpairs == TRUE) write.table(x=putpairs_empty,file=allpairsfile,quote=FALSE,sep="\t",row.names=FALSE)
+      write.table(x=sig_empty,file=fdrpairsfile,quote=FALSE,sep="\t",row.names=FALSE)
+    }
+    if (verboseoutput == FALSE)
+    {
+      if (reportallpairs == TRUE) write.table(x=putpairs_empty[,c("chrom1","start1","end1","chrom2","start2","end2","PETs","Q")],file=allpairsfile,quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
+      write.table(x=sig_empty[,c("chrom1","start1","end1","chrom2","start2","end2","PETs","Q")],file=fdrpairsfile,quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
+    }
+    resultshash[["putative interactions"]]    = 0
+    resultshash[["significant interactions"]] = 0
+  } else {
+
+  # reduce numofbins if there are fewer putative pairs than bins
+  if (nrow(putpairs) < numofbins)
+  {
+    msg = paste0("Number of putative pairs (", nrow(putpairs), ") is less than numofbins (", numofbins,
+                 "). Reducing numofbins to ", nrow(putpairs), " to avoid errors.")
+    warning(msg)
+    stage5_warnings = c(stage5_warnings, msg)
+    numofbins = nrow(putpairs)
+  }
+
+  # Check whether there are enough unique distance values for smooth.spline (requires >= 4)
+  n_unique_dist = length(unique(putpairs$distances[!is.na(putpairs$distances)]))
+  if (numofbins < 4 || n_unique_dist < 4)
+  {
+    msg = paste0("Number of putative pairs (", nrow(putpairs), ") yields too few unique distance values (",
+                 n_unique_dist, ") for statistical modeling (minimum 4 required). Writing empty output files.")
+    warning(msg)
+    stage5_warnings = c(stage5_warnings, msg)
+    putpairs_empty = data.frame(chrom1=character(),start1=integer(),end1=integer(),
+                                chrom2=character(),start2=integer(),end2=integer(),
+                                name=character(),peak1=character(),peak2=character(),
+                                PETs=integer(),distance=numeric(),
+                                P_IAB_distance=numeric(),P_combos_distance=numeric(),
+                                P_IAB_depth=numeric(),P_combos_depth=numeric(),
+                                p_binom=numeric(),P=numeric(),Q=numeric())
+    sig_empty = putpairs_empty
+    if (verboseoutput == TRUE)
+    {
+      if (reportallpairs == TRUE) write.table(x=putpairs_empty,file=allpairsfile,quote=FALSE,sep="\t",row.names=FALSE)
+      write.table(x=sig_empty,file=fdrpairsfile,quote=FALSE,sep="\t",row.names=FALSE)
+    }
+    if (verboseoutput == FALSE)
+    {
+      if (reportallpairs == TRUE) write.table(x=putpairs_empty[,c("chrom1","start1","end1","chrom2","start2","end2","PETs","Q")],file=allpairsfile,quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
+      write.table(x=sig_empty[,c("chrom1","start1","end1","chrom2","start2","end2","PETs","Q")],file=fdrpairsfile,quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
+    }
+    resultshash[["putative interactions"]]    = nrow(putpairs)
+    resultshash[["significant interactions"]] = 0
+  } else {
+
   totalcombos = 0
   for (reps in (1:2))
   {
@@ -773,7 +842,10 @@ if (5 %in% opt$stages)
   plot(log10(depth_combo_model[,1]),   depth_combo_model[,3],  pch=19,col="firebrick2",xlab="depth (p1 * p2)",ylab="# combos") 
   lines(x=log10(depth_combo_model[,1]),   predict(depth_combo_spline,log10(depth_combo_model[,1]))$y)
   dev.off()
-  
+  } # end of sufficient pairs block
+
+  } # end of non-empty putpairs block
+
   #--------------- Delete temporary files ---------------#
   
   # clean up extra files
@@ -822,6 +894,36 @@ for (key in keys(resultshash))
 {
   write(paste( key, ":",resultshash[[key]]),file=logfile,append=TRUE)
 }
+if (length(stage5_warnings) > 0)
+{
+  write("",file=logfile,append=TRUE)
+  write("Warnings:",file=logfile,append=TRUE)
+  for (w in stage5_warnings)
+  {
+    write(paste("[WARNING]", w),file=logfile,append=TRUE)
+  }
+}
+
+# Write stats.txt summarizing results and any warnings
+statsfile = paste(as.character(opt["outname"]), ".stats.txt", sep="")
+statslines = c()
+statslines = c(statslines, paste("Mango Analysis Summary -", as.character(Sys.time())))
+statslines = c(statslines, "")
+statslines = c(statslines, "Results:")
+for (key in keys(resultshash))
+{
+  statslines = c(statslines, paste(key, ":", resultshash[[key]]))
+}
+if (length(stage5_warnings) > 0)
+{
+  statslines = c(statslines, "")
+  statslines = c(statslines, "Warnings:")
+  for (w in stage5_warnings)
+  {
+    statslines = c(statslines, paste("[WARNING]", w))
+  }
+}
+writeLines(statslines, con=statsfile)
 
 print("done")
 
