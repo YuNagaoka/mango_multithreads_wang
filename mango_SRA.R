@@ -550,25 +550,9 @@ if (5 %in% opt$stages)
   
   print ("modeling PETs based on peak depth and distance")
   #--------------- Gather IAB data ---------------#
-  
-  # gather all putative interactions
-  putpairs = combineputativepairs(chromosomes,outname)
-  
-  # calculate interaction distances
-  putpairs$distances = abs( (putpairs[,2] + putpairs[,3] ) / 2 - (putpairs[,5] + putpairs[,6] ) / 2  )
-  
-  # filter out putative interactions that don't fall into distance range
-  putpairs = putpairs[which(putpairs$distances < maxinteractingdist & putpairs$distances > distancecutoff),]
-  
-  # calculate depths
-  putpairs$depths = calcDepths(putpairs[,10:11],type="product")
-  
-  # handle case where there are no putative pairs after filtering
-  if (nrow(putpairs) == 0)
-  {
-    msg = "No putative interactions remain after distance filtering. Writing empty output files."
-    warning(msg)
-    stage5_warnings = c(stage5_warnings, msg)
+
+  # Helper to write empty interaction output files (used when data are insufficient for modeling)
+  write_empty_interactions <- function() {
     putpairs_empty = data.frame(chrom1=character(),start1=integer(),end1=integer(),
                                 chrom2=character(),start2=integer(),end2=integer(),
                                 name=character(),peak1=character(),peak2=character(),
@@ -587,6 +571,27 @@ if (5 %in% opt$stages)
       if (reportallpairs == TRUE) write.table(x=putpairs_empty[,c("chrom1","start1","end1","chrom2","start2","end2","PETs","Q")],file=allpairsfile,quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
       write.table(x=sig_empty[,c("chrom1","start1","end1","chrom2","start2","end2","PETs","Q")],file=fdrpairsfile,quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
     }
+  }
+
+  # gather all putative interactions
+  putpairs = combineputativepairs(chromosomes,outname)
+  
+  # calculate interaction distances
+  putpairs$distances = abs( (putpairs[,2] + putpairs[,3] ) / 2 - (putpairs[,5] + putpairs[,6] ) / 2  )
+  
+  # filter out putative interactions that don't fall into distance range
+  putpairs = putpairs[which(putpairs$distances < maxinteractingdist & putpairs$distances > distancecutoff),]
+  
+  # calculate depths
+  putpairs$depths = calcDepths(putpairs[,10:11],type="product")
+  
+  # handle case where there are no putative pairs after filtering
+  if (nrow(putpairs) == 0)
+  {
+    msg = "No putative interactions remain after distance filtering. Writing empty output files."
+    warning(msg)
+    stage5_warnings = c(stage5_warnings, msg)
+    write_empty_interactions()
     resultshash[["putative interactions"]]    = 0
     resultshash[["significant interactions"]] = 0
   } else {
@@ -609,24 +614,7 @@ if (5 %in% opt$stages)
                  n_unique_dist, ") for statistical modeling (minimum 4 required). Writing empty output files.")
     warning(msg)
     stage5_warnings = c(stage5_warnings, msg)
-    putpairs_empty = data.frame(chrom1=character(),start1=integer(),end1=integer(),
-                                chrom2=character(),start2=integer(),end2=integer(),
-                                name=character(),peak1=character(),peak2=character(),
-                                PETs=integer(),distance=numeric(),
-                                P_IAB_distance=numeric(),P_combos_distance=numeric(),
-                                P_IAB_depth=numeric(),P_combos_depth=numeric(),
-                                p_binom=numeric(),P=numeric(),Q=numeric())
-    sig_empty = putpairs_empty
-    if (verboseoutput == TRUE)
-    {
-      if (reportallpairs == TRUE) write.table(x=putpairs_empty,file=allpairsfile,quote=FALSE,sep="\t",row.names=FALSE)
-      write.table(x=sig_empty,file=fdrpairsfile,quote=FALSE,sep="\t",row.names=FALSE)
-    }
-    if (verboseoutput == FALSE)
-    {
-      if (reportallpairs == TRUE) write.table(x=putpairs_empty[,c("chrom1","start1","end1","chrom2","start2","end2","PETs","Q")],file=allpairsfile,quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
-      write.table(x=sig_empty[,c("chrom1","start1","end1","chrom2","start2","end2","PETs","Q")],file=fdrpairsfile,quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
-    }
+    write_empty_interactions()
     resultshash[["putative interactions"]]    = nrow(putpairs)
     resultshash[["significant interactions"]] = 0
   } else {
