@@ -222,6 +222,9 @@ if (file.exists(logfile) ==TRUE){file.remove(logfile)}
 starttime = paste("Analysis start time:" , as.character(Sys.time()))
 write(starttime,file=logfile,append=TRUE)
 
+errorlog = paste(as.character(opt["outname"]), ".error.log", sep="")
+if (file.exists(errorlog) == TRUE){file.remove(errorlog)}
+
 ##################################### read in arguments #####################################
 
 lines = c()
@@ -257,11 +260,13 @@ for (line in lines)
        
 resultshash = hash()
 stage5_warnings = c()
+errors_occurred = c()
 
 ##################################### parse fastqs #####################################
 
 if (1 %in% opt$stages)
 {
+  tryCatch({
   checkRequired(opt,c("fastq1","fastq2"))
 
   # gather arguments
@@ -299,12 +304,19 @@ if (1 %in% opt$stages)
   resultshash[["same PETs"]] = as.numeric(parsingresults[2])
   resultshash[["chimeric PETs"]] = as.numeric(parsingresults[3])
   resultshash[["ambigious PETs"]] = as.numeric(parsingresults[4])
+  }, error = function(e) {
+    errmsg <- conditionMessage(e)
+    cat(paste0("[ERROR] Stage 1 failed: ", errmsg, "\n"), file=stderr())
+    errors_occurred <<- c(errors_occurred, paste0("Stage 1: ", errmsg))
+    write(paste0("[ERROR] Stage 1: ", errmsg), file=errorlog, append=TRUE)
+  })
 }
   
 ###################################### align reads #####################################
 
 if (2 %in% opt$stages)
 {
+  tryCatch({
   checkRequired(opt,c("bowtieref"))
   
   # gather arguments
@@ -344,12 +356,19 @@ if (2 %in% opt$stages)
   # align both ends of each PET
   alignBowtie(fastq=fastq1,output=sam1,bowtiepath=bowtiepath,bowtieref=bowtieref,shortreads,threads)
   alignBowtie(fastq=fastq2,output=sam2,bowtiepath=bowtiepath,bowtieref=bowtieref,shortreads,threads)
+  }, error = function(e) {
+    errmsg <- conditionMessage(e)
+    cat(paste0("[ERROR] Stage 2 failed: ", errmsg, "\n"), file=stderr())
+    errors_occurred <<- c(errors_occurred, paste0("Stage 2: ", errmsg))
+    write(paste0("[ERROR] Stage 2: ", errmsg), file=errorlog, append=TRUE)
+  })
 }
 
 ##################################### filter reads #####################################
 
 if (3 %in% opt$stages)
 {
+  tryCatch({
   checkRequired(opt,c("outname"))
   
   # gather arguments
@@ -408,12 +427,19 @@ if (3 %in% opt$stages)
 #   resultshash[["nonduplicate PETs"]] = rmdupresults[2]
 #   resultshash[["interchromosomal PETs"]] = rmdupresults[3]
 #   resultshash[["intrachromosomal PETs"]] = rmdupresults[4]
+  }, error = function(e) {
+    errmsg <- conditionMessage(e)
+    cat(paste0("[ERROR] Stage 3 failed: ", errmsg, "\n"), file=stderr())
+    errors_occurred <<- c(errors_occurred, paste0("Stage 3: ", errmsg))
+    write(paste0("[ERROR] Stage 3: ", errmsg), file=errorlog, append=TRUE)
+  })
 }
 
 ##################################### call peaks #####################################
 
 if (4 %in% opt$stages)
 {
+  tryCatch({
   checkRequired(opt,c("bedtoolsgenome"))
   
   # gather arguments
@@ -457,6 +483,12 @@ if (4 %in% opt$stages)
              bedtoolsgenome=bedtoolsgenome,peakslop=peakslop,blacklist=blacklist)
   resultshash[["peaks"]] = peakcounts[1]
   resultshash[["mergedpeaks"]] = peakcounts[2]
+  }, error = function(e) {
+    errmsg <- conditionMessage(e)
+    cat(paste0("[ERROR] Stage 4 failed: ", errmsg, "\n"), file=stderr())
+    errors_occurred <<- c(errors_occurred, paste0("Stage 4: ", errmsg))
+    write(paste0("[ERROR] Stage 4: ", errmsg), file=errorlog, append=TRUE)
+  })
 }
 
 
@@ -464,6 +496,7 @@ if (4 %in% opt$stages)
 
 if (5 %in% opt$stages)
 {
+  tryCatch({
   checkRequired(opt,c("outname","bedtoolsgenome"))
   
   # gather arguments
@@ -631,7 +664,7 @@ if (5 %in% opt$stages)
     distance_IAB_model = model_chia(x=putpairs$distances,y=putpairs[,12],borders=distanceborders,yvals=TRUE)
     distance_IAB_model_file   = paste(outname ,".distance_IAB_model.",reps, ".text",sep="")
     write.table(distance_IAB_model,file=distance_IAB_model_file,quote = FALSE, sep = "\t",row.names = FALSE,col.names = TRUE)
-    dist_IAB_valid = !is.nan(distance_IAB_model[,1]) & !is.na(distance_IAB_model[,1])
+    dist_IAB_valid = !is.nan(distance_IAB_model[,1]) & !is.na(distance_IAB_model[,1]) & distance_IAB_model[,1] > 0 & is.finite(distance_IAB_model[,3])
     distance_IAB_spline =   smooth.spline(log10(distance_IAB_model[dist_IAB_valid,1]),distance_IAB_model[dist_IAB_valid,3],spar=.75)
     
     #--------------- Depth Normalization ---------------#
@@ -643,7 +676,7 @@ if (5 %in% opt$stages)
     depth_IAB_model = model_chia(x=putpairs$depths,y=putpairs[,12],borders=depthborders,yvals=TRUE)
     depth_IAB_model_file   = paste(outname ,".depth_IAB_model.",reps, ".text",sep="")
     write.table(depth_IAB_model,file=depth_IAB_model_file,quote = FALSE, sep = "\t",row.names = FALSE,col.names = TRUE)
-    depth_IAB_valid = !is.nan(depth_IAB_model[,1]) & !is.na(depth_IAB_model[,1])
+    depth_IAB_valid = !is.nan(depth_IAB_model[,1]) & !is.na(depth_IAB_model[,1]) & depth_IAB_model[,1] > 0 & is.finite(depth_IAB_model[,3])
     depth_IAB_spline =   smooth.spline(log10(depth_IAB_model[depth_IAB_valid,1]),depth_IAB_model[depth_IAB_valid,3],spar=.75)
     
     # model Combos vs distance
@@ -696,8 +729,10 @@ if (5 %in% opt$stages)
     distance_combo_model_file   = paste(outname ,".distance_combo_model.",reps, ".text",sep="")
     write.table(distance_combo_model,file=distance_combo_model_file,quote = FALSE, sep = "\t",row.names = FALSE,col.names = TRUE)
     
-    depth_combo_spline    =   smooth.spline(log10(depth_combo_model[!is.nan(depth_combo_model[,1]) & !is.na(depth_combo_model[,1]),1]),depth_combo_model[!is.nan(depth_combo_model[,1]) & !is.na(depth_combo_model[,1]),3],spar=.75)
-    distance_combo_spline =   smooth.spline(log10(distance_combo_model[!is.nan(distance_combo_model[,1]) & !is.na(distance_combo_model[,1]),1]),distance_combo_model[!is.nan(distance_combo_model[,1]) & !is.na(distance_combo_model[,1]),3],spar=.75)
+    depth_combo_valid    = !is.nan(depth_combo_model[,1]) & !is.na(depth_combo_model[,1]) & depth_combo_model[,1] > 0 & is.finite(depth_combo_model[,3])
+    distance_combo_valid = !is.nan(distance_combo_model[,1]) & !is.na(distance_combo_model[,1]) & distance_combo_model[,1] > 0 & is.finite(distance_combo_model[,3])
+    depth_combo_spline    =   smooth.spline(log10(depth_combo_model[depth_combo_valid,1]),depth_combo_model[depth_combo_valid,3],spar=.75)
+    distance_combo_spline =   smooth.spline(log10(distance_combo_model[distance_combo_valid,1]),distance_combo_model[distance_combo_valid,3],spar=.75)
 
     if (reps == 2)
     {
@@ -856,6 +891,12 @@ if (5 %in% opt$stages)
     if (file.exists(bedfile)) file.remove(bedfile)
     if (file.exists(overlapfile)) file.remove(overlapfile)
   }
+  }, error = function(e) {
+    errmsg <- conditionMessage(e)
+    cat(paste0("[ERROR] Stage 5 failed: ", errmsg, "\n"), file=stderr())
+    errors_occurred <<- c(errors_occurred, paste0("Stage 5: ", errmsg))
+    write(paste0("[ERROR] Stage 5: ", errmsg), file=errorlog, append=TRUE)
+  })
 } 
 
 ##################################### Make Log file #####################################
@@ -895,6 +936,15 @@ if (length(stage5_warnings) > 0)
     write(paste("[WARNING]", w),file=logfile,append=TRUE)
   }
 }
+if (length(errors_occurred) > 0)
+{
+  write("",file=logfile,append=TRUE)
+  write("Errors:",file=logfile,append=TRUE)
+  for (err in errors_occurred)
+  {
+    write(paste("[ERROR]", err),file=logfile,append=TRUE)
+  }
+}
 
 # Write stats.txt summarizing results and any warnings
 statsfile = paste(as.character(opt["outname"]), ".stats.txt", sep="")
@@ -913,6 +963,15 @@ if (length(stage5_warnings) > 0)
   for (w in stage5_warnings)
   {
     statslines = c(statslines, paste("[WARNING]", w))
+  }
+}
+if (length(errors_occurred) > 0)
+{
+  statslines = c(statslines, "")
+  statslines = c(statslines, "Errors:")
+  for (err in errors_occurred)
+  {
+    statslines = c(statslines, paste("[ERROR]", err))
   }
 }
 writeLines(statslines, con=statsfile)
