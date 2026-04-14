@@ -608,7 +608,17 @@ if (5 %in% opt$stages)
 
   # gather all putative interactions
   putpairs = combineputativepairs(chromosomes,outname)
-  
+
+  # guard against NULL return when no chromosome pair files were produced
+  if (is.null(putpairs)) {
+    msg = "No putative interactions found (combineputativepairs returned no data). Writing empty output files."
+    warning(msg)
+    stage5_warnings = c(stage5_warnings, msg)
+    write_empty_interactions()
+    resultshash[["putative interactions"]]    = 0
+    resultshash[["significant interactions"]] = 0
+  } else {
+
   # calculate interaction distances
   putpairs$distances = abs( (putpairs[,2] + putpairs[,3] ) / 2 - (putpairs[,5] + putpairs[,6] ) / 2  )
   
@@ -872,6 +882,8 @@ if (5 %in% opt$stages)
   } # end of sufficient pairs block
 
   } # end of non-empty putpairs block
+
+  } # end of non-NULL putpairs block
 
   #--------------- Delete temporary files ---------------#
   
