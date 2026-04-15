@@ -18,9 +18,6 @@ alignBowtie <- function(fastq,output,bowtiepath,bowtieref,
                         shortreads,threads,verbose=TRUE,nlines=10000)
 {
   
-  # threads
-  #threads = 50
-  
   # choose alignment parameters
   # note- "-m 1" ensures that only uniquely mapped reads are reported.
   bowtievar=paste("-S -v 0 -k 1 --chunkmbs 500 --sam-nohead --mapq 40 -m 1","--threads",threads)
@@ -43,12 +40,22 @@ alignBowtie <- function(fastq,output,bowtiepath,bowtieref,
   }
   
   # execute command
-  system(bowtiecommand)
-  # sort -t . -k 2 -n
-  sortcpu = paste('--parallel=',threads,sep='')
-  system(paste('sort -t . -k 2 -n ',sortcpu, output,'-o ',output))
-  #system(paste('sort -t : -k 5 -k 6 -k 7 -n ',sortcpu, output,'-o ',output))
-  
+  # Wrap in bash with SIGHUP ignored so that terminal disconnect does not kill
+  # bowtie mid-alignment (R resets SIGHUP handling on startup, overriding nohup).
+  exitcode = system(paste0("bash -c 'trap \"\" HUP; ", bowtiecommand, "'"))
+  if (exitcode != 0) {
+    stop(paste("bowtie alignment failed with exit code", exitcode,
+               "for input:", fastq))
+  }
+  # sort SAM by read name (second dot-delimited field) so paired reads align
+  # across both SAM files when buildBedpe reads them sequentially
+  sortcpu = paste0('--parallel=', threads)
+  sort_exitcode = system(paste0("bash -c 'trap \"\" HUP; sort -t . -k 2 -n ",
+                                sortcpu, " ", output, " -o ", output, "'"))
+  if (sort_exitcode != 0) {
+    stop(paste("sort of SAM file failed with exit code", sort_exitcode,
+               "for file:", output))
+  }
 
 }
 
