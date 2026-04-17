@@ -96,3 +96,5 @@ do
            --reportallpairs TRUE
 done
 ```
+
+The additional changes made to the code from the original mango are listed in fixed_error.log.
