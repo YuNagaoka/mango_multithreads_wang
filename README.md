@@ -45,7 +45,7 @@ Instead, I modified the raw script to deal with reads (fastq) from SRA or Encode
 
 step1 shell:
 ``` shell
-git clone https://github.com/wangjk321/mango_multithreads_wang.git
+git clone https://github.com/YuNagaoka/mango_multithreads_wang.git
 mv mango_multithreads_wang mango
 R CMD INSTALL --no-multiarch --with-keep.source mango
 ```
