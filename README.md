@@ -75,7 +75,7 @@ outdir=mango/$sample
 
 for i in $FASTQ
 do
-    $mango --stages 1:5 \
+    setsid $mango --stages 1:5 \
            --prefix ${sample}_${i} \
            --outdir $outdir \
            --chromexclude chrM,chrY \
