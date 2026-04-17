@@ -60,25 +60,39 @@ install.packages('readr')
 
 step3 run the Mango
 ``` shell
-FASTQ=`ls fastq |cut -f 1-7 -d '_'|sort|uniq`
 
-build=hg38
-index=/home/Database/bowtie-indexes/UCSC-$build
-gt=/home/Database/UCSC/$build/genome_table
-mango="Rscript ~/software/mango/mango/mango_encode.R"
-mkdir -p mango
+sample=CTCF
+FASTQ=$(ls fastq/$sample | cut -d '_' -f 1 | sort -u)
+
+index=bowtie-indexes/genome
+gt=genometable.txt
+blacklist=ENCODE-Blacklist/hg38-blacklist.v2.bed
+
+mango="Rscript /opt/mango/mango_SRA.R"
+
+mkdir -p mango/$sample
+outdir=mango/$sample
 
 for i in $FASTQ
 do
-        echo $i
-        $mango --fastq1 fastq/${i}_1.fastq.gz \
-           --fastq2 fastq/${i}_2.fastq.gz \
-           --prefix mango/${i} \
+    $mango --stages 1:5 \
+           --prefix ${sample}_${i} \
+           --outdir $outdir \
+           --chromexclude chrM,chrY \
            --bowtieref $index \
            --bedtoolsgenome $gt \
-           --chromexclude chrM,chrY \
-           --stages 1:5 \
-           --reportallpairs TRUE \
-           --MACS_qvalue 0.05
+           --fastq1 fastq/$sample/${i}_1.fastq.gz \
+           --fastq2 fastq/$sample/${i}_2.fastq.gz \
+           --linkerA CGCGATATCTTATCTGACT \
+           --singlelinker TRUE \
+           --minlength 15 \
+           --maxlength 1000 \
+           --keepempty TRUE \
+           --threads 10 \
+           --shortreads FALSE \
+           --macs2path /path/macs2 \
+           --MACS_qvalue 0.05 \
+           --blacklist $blacklist \
+           --reportallpairs TRUE
 done
 ```
