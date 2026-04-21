@@ -199,14 +199,12 @@
 [13] レプリケートFASTQ自動マージ (--fastqdir)
 --------------------------------------------------------------------------------
 
-対象: mango_SRA.R
-
   - 新オプション --fastqdir を追加。
     指定ディレクトリ配下の *_1.fastq.gz / *_2.fastq.gz をアルファベット順に
     スキャンし、件数に応じて次の処理を行う:
 
       2件以上 : cat コマンドで連結（gzip展開なし）し、
-                {outname}_merged_1.fastq.gz / _merged_2.fastq.gz を生成。
+                {prefix}_merged_1.fastq.gz / {prefix}_merged_2.fastq.gz を生成。
                 Stage 1 完了直後にマージ済み一時ファイルを自動削除。
       1件のみ : そのまま fastq1 / fastq2 に設定（コピーなし）。
       0件     : エラー終了。
