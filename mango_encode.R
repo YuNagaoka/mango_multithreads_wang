@@ -122,7 +122,11 @@ option_list <- list(
   make_option(c("--extendreads"),  default="120",help="how many bp to extend reads towards peak"),
   make_option(c("--minPETS"),  default="2",help="minimum number of PETs required for an interaction (applied after FDR filtering)"),
   make_option(c("--reportallpairs"),  default="FALSE",help="Should all pairs be reported or just significant pairs"),
-  make_option(c("--MHT"),  default="all",help="How should mutliple hypothsesis testing be done?  Correct for 'all' possible pairs of loci or only those 'found' with at least 1 PET")  
+  make_option(c("--MHT"),  default="all",help="How should mutliple hypothsesis testing be done?  Correct for 'all' possible pairs of loci or only those 'found' with at least 1 PET"),
+
+  #---------- FASTQ MERGE PARAMETERS ----------#
+
+  make_option(c("--fastqdir"),  default="NULL",help="directory containing replicate *_1.fastq.gz / *_2.fastq.gz files.  When 2 or more pairs are found they are concatenated (without decompression) before stage 1; the merged files are removed after stage 1 completes.")
 )
 
 # get command line options, if help option encountered print help and exit,
@@ -265,6 +269,59 @@ for (line in lines)
 resultshash = hash()
 stage5_warnings = c()
 
+##################################### merge replicate fastq.gz files if fastqdir is given #####################################
+
+merged_fastq1 <- NULL
+merged_fastq2 <- NULL
+
+if (as.character(opt["fastqdir"]) != "NULL") {
+  fastqdir <- as.character(opt["fastqdir"])
+  if (!dir.exists(fastqdir)) {
+    stop(paste("fastqdir does not exist:", fastqdir))
+  }
+
+  files1 <- sort(list.files(fastqdir, pattern = "_1\\.fastq\\.gz$", full.names = TRUE))
+  files2 <- sort(list.files(fastqdir, pattern = "_2\\.fastq\\.gz$", full.names = TRUE))
+
+  if (length(files1) == 0) {
+    stop(paste("No *_1.fastq.gz files found in fastqdir:", fastqdir))
+  }
+  if (length(files1) != length(files2)) {
+    stop(paste("Mismatch: found", length(files1), "*_1.fastq.gz files but",
+               length(files2), "*_2.fastq.gz files in fastqdir:", fastqdir))
+  }
+
+  if (length(files1) == 1) {
+    print(paste("fastqdir: single replicate found, using directly:", files1[1]))
+    opt["fastq1"] <- files1[1]
+    opt["fastq2"] <- files2[1]
+  } else {
+    print(paste("fastqdir:", length(files1), "replicates found, merging with cat (no decompression)"))
+    outname_for_merge <- as.character(opt["outname"])
+    merged_fastq1 <- paste0(outname_for_merge, "_merged_1.fastq.gz")
+    merged_fastq2 <- paste0(outname_for_merge, "_merged_2.fastq.gz")
+
+    cmd1 <- paste("cat", paste(shQuote(files1), collapse = " "), ">", shQuote(merged_fastq1))
+    cmd2 <- paste("cat", paste(shQuote(files2), collapse = " "), ">", shQuote(merged_fastq2))
+
+    print(paste("Merging _1 files:", cmd1))
+    ret1 <- system(cmd1)
+    if (ret1 != 0) stop(paste("Failed to merge *_1.fastq.gz files. Command:", cmd1))
+
+    print(paste("Merging _2 files:", cmd2))
+    ret2 <- system(cmd2)
+    if (ret2 != 0) {
+      if (file.exists(merged_fastq1)) file.remove(merged_fastq1)
+      stop(paste("Failed to merge *_2.fastq.gz files. Command:", cmd2))
+    }
+
+    print(paste("Merged fastq1:", merged_fastq1))
+    print(paste("Merged fastq2:", merged_fastq2))
+    opt["fastq1"] <- merged_fastq1
+    opt["fastq2"] <- merged_fastq2
+  }
+}
+
 ##################################### parse fastqs #####################################
 
 if (1 %in% opt$stages)
@@ -306,6 +363,14 @@ if (1 %in% opt$stages)
   resultshash[["same PETs"]] = as.numeric(parsingresults[2])
   resultshash[["chimeric PETs"]] = as.numeric(parsingresults[3])
   resultshash[["ambigious PETs"]] = as.numeric(parsingresults[4])
+
+  # Remove merged fastq.gz files created by --fastqdir to free disk space
+  for (mf in c(merged_fastq1, merged_fastq2)) {
+    if (!is.null(mf) && file.exists(mf)) {
+      file.remove(mf)
+      print(paste("Removed merged file:", mf))
+    }
+  }
 }
   
 ###################################### align reads #####################################
