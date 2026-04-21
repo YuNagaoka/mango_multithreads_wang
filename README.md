@@ -62,7 +62,7 @@ install.packages('readr')
 ・As an additional change, I have added the `--fastqdir` option, which automatically merges multiple replicates found in the fastq directory.
 
 `--fastqdir` behavior:
-- **2 or more** `*_1.fastq.gz` / `*_R1.fastq.gz` / `*_2.fastq.gz` / `*_R2.fastq.gz` pairs found in fastq directory
+- **2 or more** `*_1.fastq.gz` / `*_R1.fastq.gz` , `*_2.fastq.gz` / `*_R2.fastq.gz` pairs found in fastq directory
 → files are merged using `cat` command (without decompression) into temporary files `{prefix}_merged_1.fastq.gz` / `{prefix}_merged_2.fastq.gz`, which are automatically deleted after Stage 1 completes.
 
 - **Exactly 1** pair found → that file is used directly (no merge, no temporary copy).
