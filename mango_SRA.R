@@ -283,15 +283,38 @@ if (as.character(opt["fastqdir"]) != "NULL") {
     stop(paste("fastqdir does not exist:", fastqdir))
   }
 
-  files1 <- sort(list.files(fastqdir, pattern = "_1\\.fastq\\.gz$", full.names = TRUE))
-  files2 <- sort(list.files(fastqdir, pattern = "_2\\.fastq\\.gz$", full.names = TRUE))
+  files1_num <- sort(list.files(fastqdir, pattern = "_1\\.fastq\\.gz$", full.names = TRUE))
+  files1_R   <- sort(list.files(fastqdir, pattern = "_R1\\.fastq\\.gz$", full.names = TRUE))
 
-  if (length(files1) == 0) {
-    stop(paste("No *_1.fastq.gz files found in fastqdir:", fastqdir))
+  if (length(files1_num) > 0 && length(files1_R) > 0) {
+    stop(paste("Mixed naming: both *_1.fastq.gz and *_R1.fastq.gz files found in fastqdir:", fastqdir))
   }
+
+  if (length(files1_num) > 0) {
+    files1 <- files1_num
+    files2_num <- sort(list.files(fastqdir, pattern = "_2\\.fastq\\.gz$", full.names = TRUE))
+    files2_R   <- sort(list.files(fastqdir, pattern = "_R2\\.fastq\\.gz$", full.names = TRUE))
+    if (length(files2_num) > 0 && length(files2_R) > 0) {
+      stop(paste("Mixed naming: both *_2.fastq.gz and *_R2.fastq.gz files found in fastqdir:", fastqdir))
+    }
+    files2 <- files2_num
+    suffix1 <- "_1"; suffix2 <- "_2"
+  } else if (length(files1_R) > 0) {
+    files1 <- files1_R
+    files2_R   <- sort(list.files(fastqdir, pattern = "_R2\\.fastq\\.gz$", full.names = TRUE))
+    files2_num <- sort(list.files(fastqdir, pattern = "_2\\.fastq\\.gz$", full.names = TRUE))
+    if (length(files2_R) > 0 && length(files2_num) > 0) {
+      stop(paste("Mixed naming: both *_R2.fastq.gz and *_2.fastq.gz files found in fastqdir:", fastqdir))
+    }
+    files2 <- files2_R
+    suffix1 <- "_R1"; suffix2 <- "_R2"
+  } else {
+    stop(paste("No *_1.fastq.gz or *_R1.fastq.gz files found in fastqdir:", fastqdir))
+  }
+
   if (length(files1) != length(files2)) {
-    stop(paste("Mismatch: found", length(files1), "*_1.fastq.gz files but",
-               length(files2), "*_2.fastq.gz files in fastqdir:", fastqdir))
+    stop(paste("Mismatch: found", length(files1), paste0("*", suffix1, ".fastq.gz"), "files but",
+               length(files2), paste0("*", suffix2, ".fastq.gz"), "files in fastqdir:", fastqdir))
   }
 
   if (length(files1) == 1) {
