@@ -59,14 +59,6 @@ install.packages('readr')
 ```
 
 ### step3 run the Mango
-・As an additional change, I have added the `--fastqdir` option, which automatically merges multiple replicates found in the fastq directory.
-
-`--fastqdir` behavior:
-- **2 or more** `*_1.fastq.gz` / `*_R1.fastq.gz` , `*_2.fastq.gz` / `*_R2.fastq.gz` pairs found in fastq directory
-→ files are merged using `cat` command (without decompression) into temporary files `{prefix}_merged_1.fastq.gz` / `{prefix}_merged_2.fastq.gz`, which are automatically deleted after Stage 1 completes.
-
-- **Exactly 1** pair found → that file is used directly (no merge, no temporary copy).
-- Output files are always named using `--prefix`, regardless of whether a merge was performed.
 
 **Pattern A — single replicate (or explicit file paths)**
 ``` shell
@@ -101,14 +93,23 @@ setsid $mango --stages 1:5 \
 
 **Pattern B — multiple replicates (auto-merge with `--fastqdir`)**
 
+・As an additional change, I have added the `--fastqdir` option, which automatically merges multiple replicates found in the fastq directory.
+
+`--fastqdir` behavior:
+- **2 or more** `*_1.fastq.gz` / `*_R1.fastq.gz` , `*_2.fastq.gz` / `*_R2.fastq.gz` pairs found in fastq directory
+→ files are merged using `cat` command (without decompression) into temporary files `{prefix}_merged_1.fastq.gz` / `{prefix}_merged_2.fastq.gz`, which are automatically deleted after Stage 1 completes.
+
+- **Exactly 1** pair found → that file is used directly (no merge, no temporary copy).
+- Output files are always named using `--prefix`, regardless of whether a merge was performed.
+
 Place all replicate FASTQ files in same directory:
+
 ```shell
 fastq/CTCF/
   rep1_1.fastq.gz  rep1_2.fastq.gz
   rep2_1.fastq.gz  rep2_2.fastq.gz
   ...
 ```
-
 Then pass the directory with `--fastqdir`.  
 `--fastq1` / `--fastq2` are **not** required when `--fastqdir` is used.
 
