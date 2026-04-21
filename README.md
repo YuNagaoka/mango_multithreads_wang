@@ -59,7 +59,7 @@ install.packages('readr')
 ```
 
 ### step3 run the Mango
-・As an additional change, we have added the `--fastqdir` option, which automatically merges multiple replicates found in the fastq directory.
+・As an additional change, I have added the `--fastqdir` option, which automatically merges multiple replicates found in the fastq directory.
 
 `--fastqdir` behavior:
 - **2 or more** `*_1.fastq.gz` / `*_2.fastq.gz` pairs found in fastq directory
