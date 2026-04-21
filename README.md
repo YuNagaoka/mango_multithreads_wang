@@ -101,7 +101,7 @@ setsid $mango --stages 1:5 \
 
 **Pattern B — multiple replicates (auto-merge with `--fastqdir`)**
 
-Place all replicate FASTQ files in one directory:
+Place all replicate FASTQ files in same directory:
 ```shell
 fastq/CTCF/
   rep1_1.fastq.gz  rep1_2.fastq.gz
