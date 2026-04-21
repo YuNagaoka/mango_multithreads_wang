@@ -126,8 +126,7 @@ option_list <- list(
 
   #---------- FASTQ MERGE PARAMETERS ----------#
 
-  make_option(c("--fastqdir"),  default="NULL",help="directory containing replicate *_1.fastq.gz / *_2.fastq.gz files.  When 2 or more pairs are found they are concatenated (without decompression) before stage 1; the merged files are removed after stage 1 completes.")
-)
+  make_option(c("--fastqdir"),  default="NULL",help="directory containing replicate *_1.fastq.gz / *_2.fastq.gz files.  When 2 or more pairs are found they are concatenated (without decompression) before stage 1; the merged files are removed after stage 1 completes."))
 
 # get command line options, if help option encountered print help and exit,
 # otherwise if options not found on command line then set defaults,
