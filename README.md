@@ -59,42 +59,83 @@ install.packages('readr')
 ```
 
 step3 run the Mango
+
+**Pattern A — single replicate (or explicit file paths)**
 ``` shell
-
 sample=CTCF
-FASTQ=$(ls fastq/$sample | cut -d '_' -f 1 | sort -u)
-
 index=bowtie-indexes/genome
 gt=genometable.txt
 blacklist=ENCODE-Blacklist/hg38-blacklist.v2.bed
 
 mango="Rscript /opt/mango/mango_SRA.R"
-
 mkdir -p mango/$sample
-outdir=mango/$sample
 
-for i in $FASTQ
-do
-    setsid $mango --stages 1:5 \
-           --prefix ${sample}_${i} \
-           --outdir $outdir \
-           --chromexclude chrM,chrY \
-           --bowtieref $index \
-           --bedtoolsgenome $gt \
-           --fastq1 fastq/$sample/${i}_1.fastq.gz \
-           --fastq2 fastq/$sample/${i}_2.fastq.gz \
-           --linkerA CGCGATATCTTATCTGACT \
-           --singlelinker TRUE \
-           --minlength 15 \
-           --maxlength 1000 \
-           --keepempty TRUE \
-           --threads 10 \
-           --shortreads FALSE \
-           --macs2path /path/macs2 \
-           --MACS_qvalue 0.05 \
-           --blacklist $blacklist \
-           --reportallpairs TRUE
-done
+setsid $mango --stages 1:5 \
+       --prefix $sample \
+       --outdir mango/$sample \
+       --chromexclude chrM,chrY \
+       --bowtieref $index \
+       --bedtoolsgenome $gt \
+       --fastq1 fastq/$sample/${sample}_1.fastq.gz \
+       --fastq2 fastq/$sample/${sample}_2.fastq.gz \
+       --linkerA CGCGATATCTTATCTGACT \
+       --singlelinker TRUE \
+       --minlength 15 \
+       --maxlength 1000 \
+       --keepempty TRUE \
+       --threads 10 \
+       --shortreads FALSE \
+       --macs2path /path/macs2 \
+       --MACS_qvalue 0.05 \
+       --blacklist $blacklist \
+       --reportallpairs TRUE
 ```
+
+**Pattern B — multiple replicates (auto-merge with `--fastqdir`)**
+
+Place all replicate FASTQ files in one directory:
+```
+fastq/CTCF/
+  rep1_1.fastq.gz  rep1_2.fastq.gz
+  rep2_1.fastq.gz  rep2_2.fastq.gz
+  ...
+```
+
+Then pass the directory with `--fastqdir`.  
+`--fastq1` / `--fastq2` are **not** required when `--fastqdir` is used.
+
+``` shell
+sample=CTCF
+index=bowtie-indexes/genome
+gt=genometable.txt
+blacklist=ENCODE-Blacklist/hg38-blacklist.v2.bed
+
+mango="Rscript /opt/mango/mango_SRA.R"
+mkdir -p mango/$sample
+
+setsid $mango --stages 1:5 \
+       --prefix $sample \
+       --outdir mango/$sample \
+       --chromexclude chrM,chrY \
+       --bowtieref $index \
+       --bedtoolsgenome $gt \
+       --fastqdir fastq/$sample \
+       --linkerA CGCGATATCTTATCTGACT \
+       --singlelinker TRUE \
+       --minlength 15 \
+       --maxlength 1000 \
+       --keepempty TRUE \
+       --threads 10 \
+       --shortreads FALSE \
+       --macs2path /path/macs2 \
+       --MACS_qvalue 0.05 \
+       --blacklist $blacklist \
+       --reportallpairs TRUE
+```
+
+`--fastqdir` behaviour:
+- **2 or more** `*_1.fastq.gz` / `*_2.fastq.gz` pairs found → files are concatenated with `cat` (no decompression) into temporary `{outname}_merged_1.fastq.gz` / `{outname}_merged_2.fastq.gz`, which are automatically deleted after Stage 1 completes.
+- **Exactly 1** pair found → that file is used directly (no merge, no temporary copy).
+- Output files are always named using `--prefix`, regardless of whether a merge was performed.
 
 The additional changes made to the code from the original mango are listed in fixed_error.log.
