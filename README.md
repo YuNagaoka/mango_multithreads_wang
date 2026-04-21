@@ -1,4 +1,4 @@
-# Modified mango for multi-threads
+# Modified mango for multi-threads and replicates
 
 ## 1.What is the bugs
 
@@ -43,14 +43,14 @@ Instead, I modified the raw script to deal with reads (fastq) from SRA or Encode
 
 ## 3.Install (for my personal use, same with the original Mango, )
 
-step1 shell:
+### step1 shell:
 ``` shell
 git clone https://github.com/YuNagaoka/mango_multithreads_wang.git
 mv mango_multithreads_wang mango
 R CMD INSTALL --no-multiarch --with-keep.source mango
 ```
 
-step2 (required package) R:
+### step2 (required package) R:
 ``` R
 install.packages('hash')
 install.packages('Rcpp')
@@ -58,12 +58,12 @@ install.packages('optparse')
 install.packages('readr')
 ```
 
-step3 run the Mango
+### step3 run the Mango
 ・As an additional change, we have added the `--fastqdir` option, which automatically merges multiple replicates found in the fastq directory.
 
 `--fastqdir` behavior:
 - **2 or more** `*_1.fastq.gz` / `*_2.fastq.gz` pairs found in fastq directory
-- → files are merged using `cat` command (without decompression) into temporary files `{prefix}_merged_1.fastq.gz` / `{prefix}_merged_2.fastq.gz`, which are automatically deleted after Stage 1 completes.
+→ files are merged using `cat` command (without decompression) into temporary files `{prefix}_merged_1.fastq.gz` / `{prefix}_merged_2.fastq.gz`, which are automatically deleted after Stage 1 completes.
 
 - **Exactly 1** pair found → that file is used directly (no merge, no temporary copy).
 - Output files are always named using `--prefix`, regardless of whether a merge was performed.
