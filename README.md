@@ -142,4 +142,4 @@ setsid $mango --stages 1:5 \
        --reportallpairs TRUE
 ```
 
-The additional changes made to the code from the original mango are listed in fixed_error.log.
+The additional changes made to the code from the original mango are listed in `fixed_error.log`.
