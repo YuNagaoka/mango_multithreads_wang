@@ -289,11 +289,21 @@ if (as.character(opt["fastqdir"]) != "NULL") {
 
   if (length(files1_num) > 0) {
     files1 <- files1_num
-    files2 <- sort(list.files(fastqdir, pattern = "_2\\.fastq\\.gz$", full.names = TRUE))
+    files2_num <- sort(list.files(fastqdir, pattern = "_2\\.fastq\\.gz$", full.names = TRUE))
+    files2_R   <- sort(list.files(fastqdir, pattern = "_R2\\.fastq\\.gz$", full.names = TRUE))
+    if (length(files2_num) > 0 && length(files2_R) > 0) {
+      stop(paste("Mixed naming: both *_2.fastq.gz and *_R2.fastq.gz files found in fastqdir:", fastqdir))
+    }
+    files2 <- files2_num
     suffix1 <- "_1"; suffix2 <- "_2"
   } else if (length(files1_R) > 0) {
     files1 <- files1_R
-    files2 <- sort(list.files(fastqdir, pattern = "_R2\\.fastq\\.gz$", full.names = TRUE))
+    files2_R   <- sort(list.files(fastqdir, pattern = "_R2\\.fastq\\.gz$", full.names = TRUE))
+    files2_num <- sort(list.files(fastqdir, pattern = "_2\\.fastq\\.gz$", full.names = TRUE))
+    if (length(files2_R) > 0 && length(files2_num) > 0) {
+      stop(paste("Mixed naming: both *_R2.fastq.gz and *_2.fastq.gz files found in fastqdir:", fastqdir))
+    }
+    files2 <- files2_R
     suffix1 <- "_R1"; suffix2 <- "_R2"
   } else {
     stop(paste("No *_1.fastq.gz or *_R1.fastq.gz files found in fastqdir:", fastqdir))
