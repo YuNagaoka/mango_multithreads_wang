@@ -89,7 +89,6 @@ do
            --keepempty TRUE \
            --threads 10 \
            --shortreads FALSE \
-           --macs2path /opt/micromamba/envs/hic-pro/bin/macs2 \
            --MACS_qvalue 0.05 \
            --blacklist $blacklist \
            --reportallpairs TRUE
@@ -142,7 +141,6 @@ setsid $mango --stages 1:5 \
        --keepempty TRUE \
        --threads 10 \
        --shortreads FALSE \
-       --macs2path /path/macs2 \
        --MACS_qvalue 0.05 \
        --blacklist $blacklist \
        --reportallpairs TRUE
