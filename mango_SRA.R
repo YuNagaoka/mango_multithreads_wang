@@ -317,6 +317,19 @@ if (as.character(opt["fastqdir"]) != "NULL") {
                length(files2), paste0("*", suffix2, ".fastq.gz"), "files in fastqdir:", fastqdir))
   }
 
+  # Verify that each R1 file has a matching R2 file with the same base name.
+  # files1 and files2 are both produced by sort(), so alphabetical order matches
+  # correctly because the only difference between corresponding file names is
+  # the suffix (suffix1 vs suffix2).
+  bases1 <- sub(paste0(suffix1, "\\.fastq\\.gz$"), "", basename(files1))
+  bases2 <- sub(paste0(suffix2, "\\.fastq\\.gz$"), "", basename(files2))
+  mismatched <- which(bases1 != bases2)
+  if (length(mismatched) > 0) {
+    stop(paste("R1/R2 basename mismatch in fastqdir:", fastqdir,
+               "\n  R1:", paste(basename(files1[mismatched]), collapse=", "),
+               "\n  R2:", paste(basename(files2[mismatched]), collapse=", ")))
+  }
+
   if (length(files1) == 1) {
     print(paste("fastqdir: single replicate found, using directly:", files1[1]))
     opt["fastq1"] <- files1[1]
@@ -354,6 +367,15 @@ if (1 %in% opt$stages)
 {
   tryCatch({
   checkRequired(opt,c("fastq1","fastq2"))
+
+  # Validate that both FASTQ files exist and are non-empty before proceeding.
+  for (fq_label in c("fastq1", "fastq2")) {
+    fq_path <- as.character(opt[fq_label])
+    if (!file.exists(fq_path))
+      stop(paste("FASTQ file not found:", fq_path))
+    if (file.info(fq_path)$size == 0)
+      stop(paste("FASTQ file is empty (0 bytes):", fq_path))
+  }
 
   # gather arguments
   outname         = as.character(opt["outname"])

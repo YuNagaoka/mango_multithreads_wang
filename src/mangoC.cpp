@@ -295,11 +295,16 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
   return output;
 }
 
-// Normalise a raw SAM QNAME to a canonical read name used for pairing
+// Normalise a raw SAM QNAME to a canonical read name used for pairing.
+// Strips only the conventions used to distinguish read-pair mates:
+//   - everything after the first whitespace (FASTQ comment field)
+//   - everything after '#' (Illumina index separator)
+//   - a trailing /1 or /2 pair-suffix handled by strip_pair_suffix()
+// Underscores are intentionally preserved because read names may contain
+// them as part of the instrument/run identifier (e.g. SRR123456_1).
 static inline std::string normalise_qname(const std::string& raw)
 {
-    std::string name = string_split(raw, "_")[0];
-    name = string_split(name, " ")[0];
+    std::string name = string_split(raw, " ")[0];
     name = string_split(name, "#")[0];
     name = strip_pair_suffix(name);
     return name;
