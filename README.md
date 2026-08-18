@@ -151,5 +151,6 @@ The additional changes made to the code from the original mango are listed in `f
 ``` shell
 # bridge-linker mode
 --linkerA ACGCGATATCTTATCTGACT
---linkerB AGTCAGATAAGATATCGCGT 
+--linkerB AGTCAGATAAGATATCGCGT
+--singlelinker FALSE
 ```
