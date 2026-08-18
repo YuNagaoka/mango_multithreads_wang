@@ -213,4 +213,71 @@
   - --fastqdir 指定時は --fastq1 / --fastq2 の指定が不要。
     出力ファイル名はマージの有無に関わらず --prefix で指定した名称を使用。
 
+--------------------------------------------------------------------------------
+[14] FASTQ R1/R2 read ID 一致検証
+--------------------------------------------------------------------------------
+
+対象: src/mangoC.cpp — parseFastq
+
+  - 各 PET について R1 と R2 の FASTQ ヘッダー read ID が一致するか検証。
+   以下の正規化を適用して比較:
+     * 最初の whitespace 以降を除去
+     * '#' 以降を除去
+     * trailing /1 または /2 サフィックスを除去 (strip_pair_suffix() を再利用)
+     * underscore '_' は除去しない (normalise_qname() と同じ方針)
+
+   対応フォーマット:
+     @SRR123456.1/1  vs  @SRR123456.1/2       → 同一 PET として認識
+     @SRR123456.1 some_comment (両 read 共通)  → 同一 PET として認識
+     @HWI-ST689:... 1:N:0:  vs  2:N:0:        → 同一 PET として認識
+
+  - 正規化後の ID が一致しない場合は Rcpp::stop() でエラーを報告。
+   エラーには PET 番号と R1/R2 の ID を含める。
+   例: FASTQ read-pair ID mismatch at PET 12345: @readA vs @readB
+
+  Before: read ID 不一致を検出しない (silent data loss / PET 不整合の恐れ)
+  After : 不一致 PET を検出し即時停止
+
+--------------------------------------------------------------------------------
+[15] FASTQ R1/R2 read 数不一致・レコード切断の検出
+--------------------------------------------------------------------------------
+
+対象: src/mangoC.cpp — parseFastq
+
+  - 従来の silent break を以下のエラー報告に置き換え:
+
+   (a) R1 の 1 レコードが 4 行未満 (切断された FASTQ):
+       Rcpp::stop("Truncated FASTQ record in R1: fewer than 4 lines in last record")
+
+   (b) R1 にまだ読むべきレコードがあるが R2 が先に EOF になった場合
+       (R2 reads < R1 reads):
+       Rcpp::stop("FASTQ pair count mismatch: R1 and R2 contain different numbers of reads")
+
+   (c) R2 の 1 レコードが 4 行未満 (切断された FASTQ):
+       Rcpp::stop("Truncated FASTQ record in R2: fewer than 4 lines in last record")
+
+   (d) R1 が EOF になったあと R2 に残りのレコードがある場合
+       (R2 reads > R1 reads):
+       Rcpp::stop("FASTQ pair count mismatch: R1 and R2 contain different numbers of reads")
+       ※ 末尾の空行は無視 (false positive 防止)
+
+  Before: EOF に達すると break で正常終了 → read 数不一致が検出されない
+  After : いずれの不整合も即時検出してエラーで停止
+
+--------------------------------------------------------------------------------
+[16] mango_SRA.R — pipeline エラー時の exit status 1
+--------------------------------------------------------------------------------
+
+対象: mango_SRA.R
+
+  - .mango.log / .error.log / .stats.txt をすべて書き終えた後、
+   errors_occurred が 1 件以上あれば quit(status=1) で終了。
+   print("done") は errors_occurred が空の場合のみ表示。
+
+  - 既存の tryCatch 構造・ログ出力処理・stats.txt 出力処理は変更なし。
+
+  Before: エラーが発生しても最後まで到達すると status 0 で正常終了
+         → HPC で失敗ジョブが success 扱いになる恐れ
+  After : エラーがあれば status 1 で終了。ログ・stats は常に書き込まれる。
+
 ================================================================================
