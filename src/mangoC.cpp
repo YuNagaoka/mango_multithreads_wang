@@ -186,6 +186,12 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
     size_t pos2_l1 = lines2[1].find(linker1);
     size_t pos2_l2 = lines2[1].find(linker2);
 
+	if (numberlinkers != 1)
+　　{
+    　pos1_l2 = lines1[1].find(linker2);
+    　pos2_l2 = lines2[1].find(linker2);
+　　}
+	  
     bool r1_has_linker1 = (pos1_l1 != std::string::npos);
     bool r1_has_linker2 = (pos1_l2 != std::string::npos);
     bool r2_has_linker1 = (pos2_l1 != std::string::npos);
