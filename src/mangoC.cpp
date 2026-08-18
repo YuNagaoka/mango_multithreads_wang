@@ -181,16 +181,16 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
     int r2linker = 0;
 
     // Find linker positions for both classification and trimming
-    size_t pos1_l1 = lines1[1].find(linker1);
-    size_t pos1_l2 = lines1[1].find(linker2);
-    size_t pos2_l1 = lines2[1].find(linker1);
-    size_t pos2_l2 = lines2[1].find(linker2);
+   	size_t pos1_l1 = lines1[1].find(linker1);
+	size_t pos2_l1 = lines2[1].find(linker1);
+	size_t pos1_l2 = std::string::npos;
+	size_t pos2_l2 = std::string::npos;
 
 	if (numberlinkers != 1)
-　　{
-    　pos1_l2 = lines1[1].find(linker2);
-    　pos2_l2 = lines2[1].find(linker2);
-　　}
+	{
+    	pos1_l2 = lines1[1].find(linker2);
+    	pos2_l2 = lines2[1].find(linker2);
+	}
 	  
     bool r1_has_linker1 = (pos1_l1 != std::string::npos);
     bool r1_has_linker2 = (pos1_l2 != std::string::npos);
