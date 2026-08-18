@@ -313,8 +313,11 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
   // After R1 is exhausted, check R2 has no remaining reads
   {
     std::string extra;
-    if (getline(file2, extra))
-      Rcpp::stop("FASTQ pair count mismatch: R1 and R2 contain different numbers of reads");
+    while (getline(file2, extra))
+    {
+      if (!extra.empty())
+        Rcpp::stop("FASTQ pair count mismatch: R1 and R2 contain different numbers of reads");
+    }
   }
 
   file1.close();
