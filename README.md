@@ -147,3 +147,9 @@ setsid $mango --stages 1:5 \
 ```
 
 The additional changes made to the code from the original mango are listed in `fixed_error.log`.
+
+``` shell
+# Other lincker set
+--linkerA ACGCGATATCTTATCTGACT
+--linkerB AGTCAGATAAGATATCGCGT 
+```
