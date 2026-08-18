@@ -281,3 +281,12 @@
   After : エラーがあれば status 1 で終了。ログ・stats は常に書き込まれる。
 
 ================================================================================
+
+[17] Stage failure時の後続Stage実行防止
+
+対象: mango_SRA.R
+
+- errors_occurred が1件以上ある場合、後続Stageを実行しない。
+- partial intermediate filesを下流解析に使用することを防止。
+- log / stats出力後に既存の quit(status=1) で終了。
+- 正常解析時の挙動は変更なし。
