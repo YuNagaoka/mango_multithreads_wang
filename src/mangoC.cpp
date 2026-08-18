@@ -166,16 +166,48 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
     std::vector<std::string> lines2;
 
     lines1.push_back(line1);
-    if (!getline(file1, line1)) break; lines1.push_back(line1);
-    if (!getline(file1, line1)) break; lines1.push_back(line1);
-    if (!getline(file1, line1)) break; lines1.push_back(line1);
+    if (!getline(file1, line1))
+      Rcpp::stop("Truncated FASTQ record in R1: fewer than 4 lines in last record");
+    lines1.push_back(line1);
+    if (!getline(file1, line1))
+      Rcpp::stop("Truncated FASTQ record in R1: fewer than 4 lines in last record");
+    lines1.push_back(line1);
+    if (!getline(file1, line1))
+      Rcpp::stop("Truncated FASTQ record in R1: fewer than 4 lines in last record");
+    lines1.push_back(line1);
 
-    if (!getline(file2, line2)) break; lines2.push_back(line2);
-    if (!getline(file2, line2)) break; lines2.push_back(line2);
-    if (!getline(file2, line2)) break; lines2.push_back(line2);
-    if (!getline(file2, line2)) break; lines2.push_back(line2);
+    if (!getline(file2, line2))
+    {
+      Rcpp::stop("FASTQ pair count mismatch: R1 and R2 contain different numbers of reads");
+    }
+    lines2.push_back(line2);
+    if (!getline(file2, line2))
+      Rcpp::stop("Truncated FASTQ record in R2: fewer than 4 lines in last record");
+    lines2.push_back(line2);
+    if (!getline(file2, line2))
+      Rcpp::stop("Truncated FASTQ record in R2: fewer than 4 lines in last record");
+    lines2.push_back(line2);
+    if (!getline(file2, line2))
+      Rcpp::stop("Truncated FASTQ record in R2: fewer than 4 lines in last record");
+    lines2.push_back(line2);
 
     petnumber++;
+
+    // Validate R1/R2 read ID match using the same normalisation as normalise_qname()
+    // (whitespace trim, # trim, /1 /2 suffix strip) but without stripping underscores.
+    {
+      std::string id1 = string_split(lines1[0], " ")[0];
+      id1 = string_split(id1, "#")[0];
+      id1 = strip_pair_suffix(id1);
+
+      std::string id2 = string_split(lines2[0], " ")[0];
+      id2 = string_split(id2, "#")[0];
+      id2 = strip_pair_suffix(id2);
+
+      if (id1 != id2)
+        Rcpp::stop("FASTQ read-pair ID mismatch at PET " + NumberToString(petnumber) +
+                   ": " + id1 + " vs " + id2);
+    }
 
     int r1linker = 0;
     int r2linker = 0;
@@ -276,6 +308,13 @@ std::vector<std::string> parseFastq(std::string fastq1, std::string fastq2, std:
     {
       Rcpp::Rcout << petnumber << std::endl;
     }
+  }
+
+  // After R1 is exhausted, check R2 has no remaining reads
+  {
+    std::string extra;
+    if (getline(file2, extra))
+      Rcpp::stop("FASTQ pair count mismatch: R1 and R2 contain different numbers of reads");
   }
 
   file1.close();

@@ -1104,5 +1104,10 @@ if (length(errors_occurred) > 0)
 }
 writeLines(statslines, con=statsfile)
 
+if (length(errors_occurred) > 0)
+{
+  quit(status=1)
+}
+
 print("done")
 
