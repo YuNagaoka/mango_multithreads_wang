@@ -430,7 +430,7 @@ if (1 %in% opt$stages)
   
 ###################################### align reads #####################################
 
-if (2 %in% opt$stages)
+if (2 %in% opt$stages && length(errors_occurred) == 0)
 {
   tryCatch({
   checkRequired(opt,c("bowtieref"))
@@ -482,7 +482,7 @@ if (2 %in% opt$stages)
 
 ##################################### filter reads #####################################
 
-if (3 %in% opt$stages)
+if (3 %in% opt$stages && length(errors_occurred) == 0)
 {
   tryCatch({
   checkRequired(opt,c("outname"))
@@ -553,7 +553,7 @@ if (3 %in% opt$stages)
 
 ##################################### call peaks #####################################
 
-if (4 %in% opt$stages)
+if (4 %in% opt$stages && length(errors_occurred) == 0)
 {
   tryCatch({
   checkRequired(opt,c("bedtoolsgenome"))
@@ -610,7 +610,7 @@ if (4 %in% opt$stages)
 
 ##################################### new group/score/filter pairs #####################################
 
-if (5 %in% opt$stages)
+if (5 %in% opt$stages && length(errors_occurred) == 0)
 {
   tryCatch({
   checkRequired(opt,c("outname","bedtoolsgenome"))
