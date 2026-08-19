@@ -148,3 +148,15 @@ setsid $mango --stages 1:5 \
 
 The additional changes made to the code from the original mango are listed in `fixed_error.log`.
 
+ChIA-PET linker sets
+``` shell
+# default in mango / short-read ChIA-PET (half-linker A/B)
+--linkerA GTTGGATAAG
+--linkerB GTTGGAATGT
+
+# Bridge-linker ChIA-PET (typically long-read ChIA-PET)
+--linkerA CGCGATATCTTATCTGACT
+
+# Alternative bridge linker used in some ENCODE ChIA-PET datasets
+--linkerA GTTGGATAAGATATCGC
+```
