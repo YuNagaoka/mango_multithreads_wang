@@ -87,7 +87,7 @@ option_list <- list(
   make_option(c("--fastq2"),  default="NULL",help="fastq read 2 file"),
   make_option(c("--linkerA"),  default="GTTGGATAAG",help="linker sequence A to look for"),
   make_option(c("--linkerB"),  default="GTTGGAATGT",help="linker sequence B to look for"),
-  make_option(c("--singlelinker"),  default="FALSE",help="If this is true Mango will only look for linkerA"),
+  make_option(c("--singlelinker"),  default="FALSE",help="If this is TRUE Mango will only look for linkerA"),
   make_option(c("--minlength"),  default="15",help="min length of reads after linker trimming"),
   make_option(c("--maxlength"),  default="25",help="max length of reads after linker trimming"),
   make_option(c("--keepempty"),  default="FALSE",help="Should reads with no linker be kept"),
