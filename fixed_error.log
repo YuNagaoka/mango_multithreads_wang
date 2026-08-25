@@ -306,8 +306,8 @@
 - 書き戻しは `mergedpeaks[,1:4]` のみに限定し、出力を常に4列の BED-like format に統一。
 
 Before: `read_tsv()` により start/end が numeric として読み込まれ、
-        `write.table()` で `121000000` → `1.21e+08` のように出力される可能性。
-        また `mergedpeaks$V4` が新規5列目を追加し、4列目を書き換えない恐れ。
+        `write.table()` で `121000000` → `1.21e+08` のように出力される可能性があり後続のbedtoolsでエラーが発生する。
+        また `mergedpeaks$V4` が新規5列目を追加し、4列目を書き換えないため、peadIDが意図しないものになっていた（解析結果には影響を及ぼさない）。
 
 After : start/end は整数文字列のまま出力され、scientific notation を含まない。
         `speak_*` は常に4列目に格納され、Stage 5 の bedtools slop / intersect 入力として使用可能。
