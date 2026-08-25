@@ -290,3 +290,24 @@
 - partial intermediate filesを下流解析に使用することを防止。
 - log / stats出力後に既存の quit(status=1) で終了。
 - 正常解析時の挙動は変更なし。
+
+================================================================================
+
+[18] Stage 5 BED scientific notation防止
+
+対象: R/extendpeaks.R
+
+- peaksfileslop の読み込みを `read_tsv(..., col_types = cols(.default = col_character()))`
+  に変更し、BED座標を double に変換せず文字列のまま保持。
+
+- peak名の更新を `mergedpeaks$V4` ではなく `mergedpeaks[[4]]` に変更。
+  列名に依存せず、必ず4列目を `speak_1`, `speak_2`, ... で上書き。
+
+- 書き戻しは `mergedpeaks[,1:4]` のみに限定し、出力を常に4列の BED-like format に統一。
+
+Before: `read_tsv()` により start/end が numeric として読み込まれ、
+        `write.table()` で `121000000` → `1.21e+08` のように出力される可能性。
+        また `mergedpeaks$V4` が新規5列目を追加し、4列目を書き換えない恐れ。
+
+After : start/end は整数文字列のまま出力され、scientific notation を含まない。
+        `speak_*` は常に4列目に格納され、Stage 5 の bedtools slop / intersect 入力として使用可能。
