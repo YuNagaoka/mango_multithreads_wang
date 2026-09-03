@@ -311,3 +311,36 @@ Before: `read_tsv()` により start/end が numeric として読み込まれ、
 
 After : start/end は整数文字列のまま出力され、scientific notation を含まない。
         `speak_*` は常に4列目に格納され、Stage 5 の bedtools slop / intersect 入力として使用可能。
+
+================================================================================
+
+[19] Interaction P-value計算の数値安定性改善
+
+対象: R/calcP.R
+
+interaction の binomial upper-tail P-value 計算を、
+1 - pbinom(...) から pbinom(..., lower.tail=FALSE) に変更。
+非常に有意な interaction では pbinom() の lower-tail probability が
+floating-point precision の制限により 1 に丸められることがあり、
+1 - pbinom(...) の計算結果が 0 になる問題を修正。
+数学的には従来と同じ binomial upper-tail probability を計算しており、
+Mango の統計モデルや interaction の判定基準自体は変更しない。
+
+Before:
+P = 1 - pbinom(q=v[1]-1, size=v[2], prob=v[3])
+
+極めて小さい P-value の場合、lower-tail probability が数値的に 1 と評価され、
+1 - 1 = 0 となることで P-value が 0 になる場合がある。
+その結果、BH correction 後の Q-value も 0 として
+.interactions.fdr.mango に出力される。
+
+After :
+P = pbinom(q=v[1]-1, size=v[2], prob=v[3], lower.tail=FALSE)
+
+upper-tail probability を直接計算することで、非常に小さい P-value でも
+floating-point precision の範囲内でより安定して計算可能。
+不必要な P-value / Q-value = 0 の発生を防止する。
+
+
+
+
