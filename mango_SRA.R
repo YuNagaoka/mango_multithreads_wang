@@ -59,6 +59,91 @@ alignBowtie <- function(fastq,output,bowtiepath,bowtieref,
 
 }
 
+archive_stage6_files <- function(outname)
+{
+  targets <- paste0(outname, c("_1.same.fastq", "_2.same.fastq",
+                               "_1.same.sam", "_2.same.sam",
+                               ".bedpe", ".tagAlign"))
+  originals_to_remove <- c()
+  failures <- c()
+
+  for (original in targets)
+  {
+    archive <- paste0(original, ".gz")
+    if (!file.exists(original))
+    {
+      if (file.exists(archive))
+      {
+        if (system(paste("gzip -t --", shQuote(archive))) == 0)
+          stage6_log(paste("Stage 6 already archived:", archive))
+        else
+        {
+          stage6_log(paste("Stage 6 found invalid archive:", archive))
+          failures <- c(failures, archive)
+        }
+      }
+      else
+        stage6_log(paste("Stage 6 source not found, skipping:", original))
+      next
+    }
+
+    if (file.info(original)$size == 0)
+    {
+      stage6_log(paste("Stage 6 source is empty, skipping:", original))
+      next
+    }
+
+    if (file.exists(archive))
+    {
+      if (system(paste("gzip -t --", shQuote(archive))) == 0)
+        stage6_log(paste("Stage 6 archive already exists; retaining source:", original))
+      else
+      {
+        stage6_log(paste("Stage 6 found invalid archive:", archive))
+        failures <- c(failures, archive)
+      }
+      next
+    }
+
+    temporary <- tempfile(pattern=paste0(basename(original), ".gz.tmp-"),
+                          tmpdir=dirname(original))
+    gzip_status <- system(paste("gzip -c --", shQuote(original), ">",
+                                shQuote(temporary)))
+    if (gzip_status != 0)
+    {
+      if (file.exists(temporary)) file.remove(temporary)
+      stage6_log(paste("Stage 6 compression failed:", original))
+      failures <- c(failures, original)
+      next
+    }
+    if (system(paste("gzip -t --", shQuote(temporary))) != 0)
+    {
+      if (file.exists(temporary)) file.remove(temporary)
+      stage6_log(paste("Stage 6 validation failed:", original))
+      failures <- c(failures, original)
+      next
+    }
+    if (file.exists(archive) || !file.rename(temporary, archive))
+    {
+      if (file.exists(temporary)) file.remove(temporary)
+      stage6_log(paste("Stage 6 could not create archive:", archive))
+      failures <- c(failures, original)
+      next
+    }
+    stage6_log(paste("Stage 6 archived:", archive))
+    originals_to_remove <- c(originals_to_remove, original)
+  }
+
+  if (length(failures) > 0)
+    stop(paste("Stage 6 failed for:", paste(failures, collapse=", ")))
+
+  for (original in originals_to_remove)
+  {
+    if (!file.remove(original))
+      stop(paste("Stage 6 could not remove source:", original))
+  }
+}
+
 
 
 ##################################### read commandline paramters #####################################
@@ -228,12 +313,21 @@ if (opt["outdir"] != "NULL")
 }
 
 logfile = paste(as.character(opt["outname"]),".mango.log",sep="")
-if (file.exists(logfile) ==TRUE){file.remove(logfile)}
-starttime = paste("Analysis start time:" , as.character(Sys.time()))
-write(starttime,file=logfile,append=TRUE)
-
 errorlog = paste(as.character(opt["outname"]), ".error.log", sep="")
-if (file.exists(errorlog) == TRUE){file.remove(errorlog)}
+stage6_only = length(opt$stages) == 1 && as.numeric(opt$stages[1]) == 6
+stage6_status = c()
+stage6_log <- function(message)
+{
+  print(message)
+  stage6_status <<- c(stage6_status, message)
+}
+if (!stage6_only)
+{
+  if (file.exists(logfile) ==TRUE){file.remove(logfile)}
+  starttime = paste("Analysis start time:" , as.character(Sys.time()))
+  write(starttime,file=logfile,append=TRUE)
+  if (file.exists(errorlog) == TRUE){file.remove(errorlog)}
+}
 
 ##################################### read in arguments #####################################
 
@@ -1027,8 +1121,25 @@ if (5 %in% opt$stages && length(errors_occurred) == 0)
   })
 } 
 
+##################################### archive intermediate files #####################################
+
+if (6 %in% opt$stages && length(errors_occurred) == 0)
+{
+  tryCatch({
+    archive_stage6_files(as.character(opt["outname"]))
+  }, error = function(e) {
+    errmsg <- conditionMessage(e)
+    cat(paste0("[ERROR] Stage 6 failed: ", errmsg, "\n"), file=stderr())
+    errors_occurred <<- c(errors_occurred, paste0("Stage 6: ", errmsg))
+    if (!stage6_only)
+      write(paste0("[ERROR] Stage 6: ", errmsg), file=errorlog, append=TRUE)
+  })
+}
+
 ##################################### Make Log file #####################################
 
+if (!stage6_only)
+{
 print ("writing to log file")
 
 stoptime = paste("Analysis end time:" , as.character(Sys.time()))
@@ -1073,6 +1184,15 @@ if (length(errors_occurred) > 0)
     write(paste("[ERROR]", err),file=logfile,append=TRUE)
   }
 }
+if (length(stage6_status) > 0)
+{
+  write("",file=logfile,append=TRUE)
+  write("Stage 6 archive status:",file=logfile,append=TRUE)
+  for (status in stage6_status)
+  {
+    write(status,file=logfile,append=TRUE)
+  }
+}
 
 # Write stats.txt summarizing results and any warnings
 statsfile = paste(as.character(opt["outname"]), ".stats.txt", sep="")
@@ -1103,6 +1223,7 @@ if (length(errors_occurred) > 0)
   }
 }
 writeLines(statslines, con=statsfile)
+}
 
 if (length(errors_occurred) > 0)
 {
@@ -1110,4 +1231,3 @@ if (length(errors_occurred) > 0)
 }
 
 print("done")
-
