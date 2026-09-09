@@ -74,7 +74,7 @@ mkdir -p mango/$sample
 
 for i in $FASTQ
 do
-    setsid $mango --stages 1:5 \
+    setsid $mango --stages 1:6 \
            --prefix ${sample}_${i} \
            --outdir $outdir \
            --chromexclude chrM,chrY \
@@ -127,7 +127,7 @@ blacklist=ENCODE-Blacklist/hg38-blacklist.v2.bed
 mango="Rscript /opt/mango/mango_SRA.R"
 mkdir -p mango/$sample
 
-setsid $mango --stages 1:5 \
+setsid $mango --stages 1:6 \
        --prefix $sample \
        --outdir mango/$sample \
        --chromexclude chrM,chrY \
@@ -146,25 +146,14 @@ setsid $mango --stages 1:5 \
        --reportallpairs TRUE
 ```
 
-### Stage 6: archive intermediate files
+### Add archive intermediate files function as Stage 6
 
-Stage 6 safely gzip-compresses the Stage 1--4 intermediate files
+Stage 6 safely gzip the Stage 1-4 intermediate files
 `<prefix>_1.same.fastq`, `<prefix>_2.same.fastq`, `<prefix>_1.same.sam`,
 `<prefix>_2.same.sam`, `<prefix>.bedpe`, and `<prefix>.tagAlign`.
-It runs sequentially within a sample, verifies each archive before removing
-its source, and never compresses `<prefix>.rmdup.bedpe`, interaction results,
-logs, peak files, or PDFs. The default remains `--stages 1:5`; request
-archiving explicitly:
 
-```shell
-setsid $mango --stages 1:6 \
-       --prefix $sample \
-       --outdir mango/$sample
-```
-
-Stage 6 can also be run alone with `--stages 6`. Existing `.mango.log`,
-`.error.log`, and `.stats.txt` files are retained in that mode. To rerun
-Stages 2--5 after archiving, first decompress the required files back to
+Stage 6 can also be run alone with `--stages 6`. 
+To rerun Stages 2--5 after archiving intermediate files, first decompress the required files back to
 their original fixed filenames.
 
 The additional changes made to the code from the original mango are listed in `fixed_error.log`.
