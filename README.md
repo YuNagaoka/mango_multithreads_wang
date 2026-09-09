@@ -172,8 +172,7 @@ setsid $mango --stages 6 \
 To rerun Stages 2-5 after archiving, please unzip `<prefix>_1.same.fastq.gz` and `<prefix>_2.same.fastq.gz`. 
 Stage 2 regenerates the SAM files, Stage 3 regenerates the BEDPE files, and Stage 4 regenerates the tagAlign file when `--peakinput` is not used.  
 If restarting at Stage 3, please unzip `<prefix>_1.same.sam.gz` and `<prefix>_2.same.sam.gz` instead.  
-If running Stage 5 alone, please unzip `<prefix>.tagAlign.gz`. The tagAlign file must also be restored when running Stages 4–5 with  
-`--peakinput`, because Stage 4 does not regenerate it in that case.  
+If running Stage 5 alone, please unzip `<prefix>.tagAlign.gz`. The tagAlign file must also be restored when running Stages 4–5 with `--peakinput`, because Stage 4 does not regenerate it in that case.  
 The `<prefix>.rmdup.bedpe` file used by Stages 4 and 5 is not compressed by Stage 6. The `.chim.fastq.gz` files are not used by Stages 2–5 and do not need to be restored.
 
 The additional changes made to the code from the original mango are listed in `fixed_error.log`.
