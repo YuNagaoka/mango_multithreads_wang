@@ -342,5 +342,40 @@ floating-point precision の範囲内でより安定して計算可能。
 不必要な P-value / Q-value = 0 の発生を防止する。
 
 
+--------------------------------------------------------------------------------
+[20] Stage 6 — 中間ファイルの安全な gzip アーカイブ
+--------------------------------------------------------------------------------
+
+対象: mango_encode.R, mango_SRA.R, README.md
+
+- Stage 1--4 が生成する以下の中間ファイルを gzip 圧縮する Stage 6 を追加。
+  `<prefix>_1.same.fastq`, `<prefix>_2.same.fastq`,
+  `<prefix>_1.chim.fastq`, `<prefix>_2.chim.fastq`,
+  `<prefix>_1.same.sam`, `<prefix>_2.same.sam`,
+  `<prefix>.bedpe`, `<prefix>.tagAlign`
+
+- 各ファイルについて、同じディレクトリ内の一時ファイルへ `gzip -c` で圧縮し、
+  `gzip -t` による検証と最終ファイル名への rename が成功した後に限り、
+  元の非圧縮ファイルを削除する。
+
+- 1ファイルの圧縮・検証・元ファイル削除を完了してから次のファイルを処理する。
+  後続ファイルが失敗しても、先に正常終了したファイルは圧縮済みの状態を保つ。
+
+- 元ファイルと既存の `.gz` が両方存在する場合は、元ファイルを正として
+  既存アーカイブを置き換える。元ファイルがなく、有効な `.gz` のみ存在する場合は
+  圧縮済みとして扱う。両方とも存在しない対象および空ファイルはスキップする。
+
+- two-linker ChIA-PET で生成される非空の `<prefix>_1.chim.fastq` と
+  `<prefix>_2.chim.fastq` も圧縮対象に含める。single-linker解析で生成される
+  0 byte の `.chim.fastq` はスキップして非圧縮のまま残す。
+
+- `--stages 6` による Stage 6 単独実行を可能にした。
+  単独実行時は既存の `.mango.log`, `.error.log`, `.stats.txt` を削除しない。
+
+- Stage 6 は `<prefix>.rmdup.bedpe`、interaction結果、peakファイル、ログ、
+  PDFを圧縮しない。
+
+- READMEに、Stages 2--5を再実行する場合の復元ファイルと、Stage 3または
+  Stage 5から再開する場合の復元ファイルを記載した。
 
 

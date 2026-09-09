@@ -62,9 +62,9 @@ alignBowtie <- function(fastq,output,bowtiepath,bowtieref,
 archive_stage6_files <- function(outname)
 {
   targets <- paste0(outname, c("_1.same.fastq", "_2.same.fastq",
+                               "_1.chim.fastq", "_2.chim.fastq",
                                "_1.same.sam", "_2.same.sam",
                                ".bedpe", ".tagAlign"))
-  originals_to_remove <- c()
   failures <- c()
 
   for (original in targets)
@@ -95,14 +95,13 @@ archive_stage6_files <- function(outname)
 
     if (file.exists(archive))
     {
-      if (system(paste("gzip -t --", shQuote(archive))) == 0)
-        stage6_log(paste("Stage 6 archive already exists; retaining source:", original))
-      else
+      if (!file.remove(archive))
       {
-        stage6_log(paste("Stage 6 found invalid archive:", archive))
+        stage6_log(paste("Stage 6 could not replace existing archive:", archive))
         failures <- c(failures, archive)
+        next
       }
-      next
+      stage6_log(paste("Stage 6 replacing existing archive because source is present:", archive))
     }
 
     temporary <- tempfile(pattern=paste0(basename(original), ".gz.tmp-"),
@@ -130,18 +129,17 @@ archive_stage6_files <- function(outname)
       failures <- c(failures, original)
       next
     }
-    stage6_log(paste("Stage 6 archived:", archive))
-    originals_to_remove <- c(originals_to_remove, original)
+    if (!file.remove(original))
+    {
+      stage6_log(paste("Stage 6 could not remove source:", original))
+      failures <- c(failures, original)
+      next
+    }
+    stage6_log(paste("Stage 6 archived and removed source:", archive))
   }
 
   if (length(failures) > 0)
     stop(paste("Stage 6 failed for:", paste(failures, collapse=", ")))
-
-  for (original in originals_to_remove)
-  {
-    if (!file.remove(original))
-      stop(paste("Stage 6 could not remove source:", original))
-  }
 }
 
 
