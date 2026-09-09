@@ -41,6 +41,8 @@ Instead, I modified the raw script to deal with reads (fastq) from SRA or Encode
 - If others:
   Please modify the `alignBowtie` function (line 17) in `mango_encode.R` or `mango_SRA.R` to make sure you can obtain the right sorted sam file ~
 
+- The additional changes made to the code from the original mango are listed in `fixed_error.log`.
+
 ## 3.Install (for my personal use, same with the original Mango, )
 
 ### step1 shell:
@@ -175,7 +177,6 @@ If restarting at Stage 3, please unzip `<prefix>_1.same.sam.gz` and `<prefix>_2.
 If running Stage 5 alone, please unzip `<prefix>.tagAlign.gz`. The tagAlign file must also be restored when running Stages 4–5 with `--peakinput`, because Stage 4 does not regenerate it in that case.  
 The `<prefix>.rmdup.bedpe` file used by Stages 4 and 5 is not compressed by Stage 6. The `.chim.fastq.gz` files are not used by Stages 2–5 and do not need to be restored.
 
-The additional changes made to the code from the original mango are listed in `fixed_error.log`.
 
 ChIA-PET linker sets
 ``` shell
