@@ -178,7 +178,7 @@ If running Stage 5 alone, please unzip `<prefix>.tagAlign.gz`. The tagAlign file
 The `<prefix>.rmdup.bedpe` file used by Stages 4 and 5 is not compressed by Stage 6. The `.chim.fastq.gz` files are not used by Stages 2–5 and do not need to be restored.
 
 
-ChIA-PET linker sets
+Note : ChIA-PET linker sets
 ``` shell
 # default in mango / short-read ChIA-PET (half-linker A/B)
 --linkerA GTTGGATAAG
